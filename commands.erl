@@ -7,11 +7,13 @@
 %% Hace un llamado a la base de datos para saber si ya existe
 %% un usuario con su mismo nombre, en caso contrario lo registra.
 cmd_con(UserName) ->
+    io:format("PCOMMAND received ~p~n",[UserName]),
     case exists_username(UserName) of
         false -> add_username(UserName),
                  "valid "++UserName;
         _     -> "error"
-    end.
+    end,
+    io:format("PCOMMAND processed ~p~n",[UserName]).
 
 cmd_lsg(CmdId) -> "ok".
 

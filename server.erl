@@ -104,8 +104,9 @@ pcommand(Command, UserName, PidSocket) ->
     case string:tokens(Command," ") of
         ["CON"|T] -> case T of
                         [Name] ->
-                            io:format("DEBUG ~p ~n",[Name]),
-                            PidSocket ! {pcommand, "CON "++cmd_con(Name)};
+                            io:format("DEBUG BEFORE ~p ~n",[Name]),
+                            PidSocket ! {pcommand, "CON "++cmd_con(Name)},
+                            io:format("DEBUG AFTER ~p ~n",[Name]);
                         _      -> io:format("ERROR [pcommand] mistaken CON format.~n")
                      end;
         ["NEW"|T] -> case T of

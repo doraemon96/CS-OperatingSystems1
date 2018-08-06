@@ -51,7 +51,7 @@ server(Port) ->
 
 %% Server/2: ejecuta un servidor uniendolo a otro ya existente
 server(Port,Server) ->
-    net_kernel:connect_node(Server),
+    true = net_kernel:connect_node(Server),
     receive after 1000 -> ok end,           %%TODO: esto para que era?
     server(Port).
 

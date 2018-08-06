@@ -12,8 +12,7 @@ cmd_con(UserName) ->
         false -> add_username(UserName),
                  "valid "++UserName;
         _     -> "error"
-    end,
-    io:format("PCOMMAND processed ~p~n",[UserName]).
+    end.
 
 cmd_lsg(CmdId) -> "ok".
 

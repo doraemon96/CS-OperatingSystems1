@@ -16,13 +16,19 @@ start(Host,Port) ->
     client_loop(1,"",UpdaterPid).
 
 %% Updater: procesa mensajes entrantes
-%%  llegan a el, si son para el los procesa, sino los reenvia para el loop original
+%%  actua como intermediario inmediato entre el cliente y el servidor
 updater(Sock,CliLoopPid) ->
     receive
         %% Ante una respuesta del servidor la procesamos aca
         {tcp, Sock, Data} -> 
+            io:format("Updater received \"~p\"~n",[Data]),
             case string:tokens(Data," ") of
-                ["CON"|T] -> ok;
+                ["CON"|T] ->
+                    case T of
+                        ["error"] -> io:format("Usuario invalido. Intente de nuevo.~n");
+                        ["valid",UserName] -> io:format("Bienvenido ~p.~n", [UserName]),
+                                              CliLoopPid ! {username, UserName}
+                    end;
                 ["LSG"|T] -> ok;
                 ["NEW"|T] -> ok;
                 ["ACC"|T] -> ok;
@@ -44,7 +50,7 @@ updater(Sock,CliLoopPid) ->
                                            _                -> io:format("ERROR: [updater] al recibir tabla.~n")
                                        end
                     end;
-                _         -> io:format("ERROR: [updater] al recibir paquete.~n")
+                Default -> io:format("ERROR: [updater] al recibir paquete \"~p\".~n",[Default])
             end;
         %% Si llega un comando de la consola, redirigirlo al servidor
         {client,Message} -> ok = gen_tcp:send(Sock,Message);
@@ -58,7 +64,7 @@ updater(Sock,CliLoopPid) ->
 %%  imprime la ayuda o redirecciona a updater para ser enviados al server
 client_loop(CommandNumber,UserName,UpdaterPid) ->
     receive
-        {username, UserName} -> client_loop(CommandNumber, UserName, UpdaterPid)
+        {username, NewName} -> client_loop(CommandNumber, NewName, UpdaterPid)
     after 0 ->
         case CommandNumber of
             0 -> io:format("Gracias por jugar.~n");

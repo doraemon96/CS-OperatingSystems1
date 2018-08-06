@@ -1,14 +1,34 @@
 -module(server).
 -compile(export_all).
+-include("commands.erl").
 
-%% Start/1: comienza la ejecucion de un servidor
+
+%% Start: inicia el esquema de la base de datos y las tablas a usar
+%%  luego llama a iniciar al servidor
+start(Port) ->  
+    mnesia:create_schema([node()]),
+    mnesia:start(),
+    mnesia:create_table(user, [{attributes, record_info(fields, user)}, {disc_copies, [node()]}]),
+    mnesia:create_table(game, [{attributes, record_info(fields, game)}, {disc_copies, [node()]}]),
+    spawn(?MODULE, server, [Port]),
+    ok. 
+
+start(Port, Node) ->
+    rpc:call(Node, mnesia, change_config, [extra_db_nodes, [node()]]),
+    mnesia:change_table_copy_type(schema, node(), disc_copies),
+    mnesia:add_table_copy(user, node(), disc_copies),
+    mnesia:add_table_copy(game, node(), disc_copies),
+    spawn(?MODULE, server, [Port, Node]),
+    ok. 
+
+%% Server/1: comienza la ejecucion de un servidor
 %%  escucha en el puerto indicado, spawnea un balanceador de carga unico y propio,
 %%  un dispatcher de mensajes, y da comienzo a la escucha de mensajes.
-start(Port) ->
+server(Port) ->
     {ok, Sock} = gen_tcp:listen(Port, [list, {packet,4}, {active,true}, {reuseaddr,true}]),
     
     PidStat     = spawn_link(?MODULE, pstat, []),
-    PidBalance  = spawn_link(?MODULE, pbalance, [statistics(run_queue),statistics(reductions),node()]),
+    PidBalance  = spawn_link(?MODULE, pbalance, [statistics(run_queue),element(2,statistics(reductions)),node()]),
     global:register_name("balance" ++ atom_to_list(node()), PidBalance),
     PidDispatch = spawn_link(?MODULE, dispatcher, [Sock, PidBalance]),
 
@@ -29,11 +49,11 @@ start(Port) ->
     spawn(?MODULE, start, [Port]),
     ok.
 
-%% Start/2: ejecuta un servidor uniendolo a otro ya existente
-start(Port,Server) ->
+%% Server/2: ejecuta un servidor uniendolo a otro ya existente
+server(Port,Server) ->
     net_kernel:connect_node(Server),
     receive after 1000 -> ok end,           %%TODO: esto para que era?
-    start(Port).
+    server(Port).
 
 %% Dispatcher:
 dispatcher(Sock, PidBalance) ->
@@ -52,6 +72,7 @@ psocket(Sock, PidBalance) ->
     psocket_loop(Sock, PidBalance, nil).
 
 %% PSocket_loop: es el "socket virtual" de cada cliente
+%TODO: UserName tiene que ocurrir luego de un CON, es mas, todo tiene que ser error hasta un CON
 psocket_loop(Sock, PidBalance, UserName) ->
     receive
         %% Ante un request al pcommand lo pasamos al nodo con menos trabajo.
@@ -59,36 +80,48 @@ psocket_loop(Sock, PidBalance, UserName) ->
             PidBalance ! {psocket, self()},
             receive
                 {pbalance, Node} ->
-                    spawn(Node, ?MODULE, pcommand, [Data, UserName, nil, self()]);
+                    spawn(Node, ?MODULE, pcommand, [Data, UserName, self()]);
                 _                -> io:format("ERROR [psocket_loop] mistaken pbalance answer.~n")
             end;
-        %% Ante una respuesta del pcommand la reenviamos al cliente.
-        {pcommand, Msg}    -> 
+        %% Ante una respuesta de un pcommand la reenviamos al cliente.
+        {pcommand, Msg}    ->
             gen_tcp:send(Sock, Msg);
         %% Ante una repentina desconexion del usuario.
         {tcp_closed, Sock} ->
             %%TODO:delete_by_username(Sock, UserName),
-            %%TODO:delete_username(UserName),
+            delete_username(UserName),
             io:format(">> USER_DC: ~p.~n",[UserName]),
             ok;
         Default ->
             io:format("ERROR [psocket_loop] mensaje desconocido ~p~n.", [Default]),
             ok
-    end.
+    end,
+    psocket_loop(Sock,PidBalance,UserName).
 
 %% PCommand: procesa los comandos enviados por el cliente
 pcommand(Command, UserName, PidSocket) ->
-    io:format("PCommand received \"~p\"",[Command]),
-    case Command of %%TODO: Todos
-        ["CON"|T] -> PidSocket ! {pcommand, ok};  
-        ["NEW"|T] -> PidSocket ! {pcommand, ok};
-        ["ACC"|T] -> PidSocket ! {pcommand, ok};
+    io:format("PCommand received ~p.~n",[Command]),
+    case string:tokens(Command," ") of
+        ["CON"|T] -> case T of
+                        [Name] ->
+                            io:format("DEBUG ~p ~n",[Name]),
+                            PidSocket ! {pcommand, "CON "++cmd_con(Name)};
+                        _      -> io:format("ERROR [pcommand] mistaken CON format.~n")
+                     end;
+        ["NEW"|T] -> case T of
+                        [] -> PidSocket ! {pcommand, "NEW "++cmd_new(UserName)};
+                        _  -> io:format("ERROR [pcommand] mistaken NEW format.~n")
+                     end;
+        ["ACC"|T] -> case T of
+                        [GameID] -> PidSocket ! {pcommand, "ACC "++cmd_acc(GameID,UserName)};
+                        _        -> io:format("ERROR [pcommand] mistaken ACC format.~n")
+                     end;
         ["LSG"|T] -> PidSocket ! {pcommand, ok};
         ["PLA"|T] -> PidSocket ! {pcommand, ok};
         ["OBS"|T] -> PidSocket ! {pcommand, ok};
         ["LEA"|T] -> PidSocket ! {pcommand, ok};
         ["BYE"|T] -> PidSocket ! {pcommand, ok};
-        _         -> io:format("ERROR [pcommand] command \"~p\" not found.",[Command])
+        _         -> io:format("ERROR [pcommand] command \"~p\" not found.~n",[Command])
     end.
         
 %% PBalance
@@ -100,7 +133,7 @@ pbalance(Queue, Reductions, Node) ->
     receive
         %% Si recibimos un pedido de un psocket, le indicamos al nodo quien debe ejecutar el comando
         {psocket, Pid} ->
-            Pid ! {psalance, Node};
+            Pid ! {pbalance, Node};
 
         %% Si recibimos información de un pstat, comparamos con el mejor postor que tenemos
         {pstat, {New_Queue, New_Reductions}, New_Node} ->

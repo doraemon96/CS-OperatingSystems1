@@ -14,7 +14,12 @@ start(Port) ->
     ok. 
 
 start(Port, Node) ->
-    rpc:call(Node, mnesia, change_config, [extra_db_nodes, [node()]]),
+    mnesia:start(),
+    Res = rpc:call(Node, mnesia, change_config, [extra_db_nodes, [node()]]),
+    case Res of
+        {badrpc, Reason} -> io:format("ERROR [start/2] rpc returned ~p~n",[Reason]);
+        Default          -> io:format("MNESIA [rpc_call] rpc returned ~p~n",[Default])
+    end,
     mnesia:change_table_copy_type(schema, node(), disc_copies),
     mnesia:add_table_copy(user, node(), disc_copies),
     mnesia:add_table_copy(game, node(), disc_copies),

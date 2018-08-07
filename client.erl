@@ -2,7 +2,6 @@
 -compile(export_all).
 
 %%TODO: agregar forma de conectarse a otro servidor (ej: si se cae el sv al que estoy conectado).
-%%TODO: repensar toda la logica de las jugadas
 
 
 %% Client: inicializa el proceso de cliente
@@ -27,10 +26,21 @@ updater(Sock,CliLoopPid) ->
                     case T of
                         ["error"] -> io:format("Usuario invalido. Intente de nuevo.~n");
                         ["valid",UserName] -> io:format("Bienvenido ~p.~n", [UserName]),
-                                              CliLoopPid ! {username, UserName}
+                                              CliLoopPid ! {username, UserName};
+                        _         -> io:format("ERROR [updater] al procesar CON",[])
                     end;
-                ["LSG"|T] -> ok;
-                ["NEW"|T] -> ok;
+                ["LSG"|T] -> 
+                    case T of
+                        ["wait"] -> io:format(" >> Lista de Juegos <<~n"),
+                                    ok = lsg_loop(Sock),
+                                    io:format(" >> Fin de la Lista <<~n~n");
+                        _        -> io:format("ERROR [updater] al procesar LSG",[])
+                    end;
+                ["NEW"|T] -> 
+                    case T of 
+                        [ID] -> io:format("Nuevo juego creado con ID: ~p~n", [ID]);
+                        _    -> io:format("ERROR [updater] al procesar NEW",[])
+                    end;
                 ["ACC"|T] -> ok;
                 ["PLA"|T] -> ok;
                 ["OBS"|T] -> ok;
@@ -101,6 +111,17 @@ print_table(Table) ->
     S6 = "c   " ++ A3 ++ " ¦ " ++ B3 ++ " ¦ " ++ C3 ++ " ~n",
     io:format("~n" ++ S1 ++ S2 ++ S4 ++ S3 ++ S5 ++ S3 ++ S6 ++ "~n~n", []).
 
+
+lsg_loop(Sock) ->
+    receive
+        {tcp, Sock, Data} ->
+            case Data of
+                "LSG end" -> ok;
+                _         -> io:format(Data++"~n",[]),
+                             lsg_loop(Sock)
+            end
+    end.
+    
 
 %% Print_help
 %%

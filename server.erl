@@ -110,7 +110,7 @@ pcommand(Command, UserName, PidSocket) ->
         ["CON"|T] -> case T of
                         [Name] ->
                             io:format("DEBUG BEFORE ~p ~n",[Name]),
-                            PidSocket ! {pcommand, "CON "++cmd_con(Name)},
+                            PidSocket ! {pcommand, "CON "++cmd_con(Name, PidSocket)},
                             io:format("DEBUG AFTER ~p ~n",[Name]);
                         _      -> io:format("ERROR [pcommand] mistaken CON format.~n")
                      end;
@@ -122,7 +122,13 @@ pcommand(Command, UserName, PidSocket) ->
                         [GameID] -> PidSocket ! {pcommand, "ACC "++cmd_acc(GameID,UserName)};
                         _        -> io:format("ERROR [pcommand] mistaken ACC format.~n")
                      end;
-        ["LSG"|T] -> PidSocket ! {pcommand, ok};
+        ["LSG"|T] -> case T of
+                        [] ->
+                            PidSocket ! {pcommand, "LSG wait"},
+                            lists:foreach(fun(X) -> PidSocket ! {pcommand,X} end, cmd_lsg()),
+                            PidSocket ! {pcommand, "LSG end"};
+                        _  -> io:format("ERROR [pcommand] mistaken LSG format.~n")
+                     end;
         ["PLA"|T] -> PidSocket ! {pcommand, ok};
         ["OBS"|T] -> PidSocket ! {pcommand, ok};
         ["LEA"|T] -> PidSocket ! {pcommand, ok};

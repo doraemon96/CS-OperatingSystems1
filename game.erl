@@ -74,6 +74,20 @@ list_games() ->
         end,
     mnesia:activity(transaction, F).
 
+game_fill_room(GameID,UName) ->
+    F = fun() -> R = mnesia:read({game, GameID}),
+                 case R of
+                     []  -> error;
+                     [G] -> case element(4,G) of
+                                "*waiting*" -> mnesia:write(G#game{user2=UName}),
+                                               valid;
+                                _           -> error
+                            end
+                 end
+        end,
+    mnesia:activity(transaction, F). 
+
+
 %% delete_game
 %% Elimina todos los registros en mnesia con el gameId dado.
 delete_game(GameId) ->

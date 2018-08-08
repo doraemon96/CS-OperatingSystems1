@@ -42,7 +42,7 @@ updater(Sock,CliLoopPid) ->
                         [ID] -> io:format("Nuevo juego creado con ID: ~p~n", [ID]);
                         _    -> io:format("ERROR [updater] al procesar NEW",[])
                     end;
-                ["ACC"|T] -> ok;
+                ["ACC"|T] -> ok; %TODO: las respuestas de acc las recibo en UPD
                 ["PLA"|T] -> ok;
                 ["OBS"|T] -> ok;
                 ["LEA"|T] -> ok;

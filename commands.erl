@@ -45,4 +45,14 @@ cmd_new(UName) ->
 %% ACC
 %% Dados un juego y un usuario, intenta unirse en la posicion
 %% del jugador2 si esta esta vacia.
-cmd_acc(GameID, UName) -> "ok".
+cmd_acc(GameID, UName) ->
+    GID = element(1,string:to_integer(GameID)),
+    if 
+        not(is_integer(GID)) -> "error_notint";
+        true ->
+            case game_fill_room(GID, UName) of
+                valid -> get_user_psock(element(1,get_game_players(GID))) ! "UPD acc" ++ GID,
+                        "success";
+                error -> "error_gfr"
+            end
+    end.

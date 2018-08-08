@@ -97,7 +97,7 @@ psocket_loop(Sock, PidBalance, UserName) ->
             end;
         %% Ante una repentina desconexion del usuario.
         {tcp_closed, Sock} ->
-            %%TODO:delete_by_username(Sock, UserName),
+            delete_by_username(UserName),
             delete_username(UserName),
             io:format(">> USER_DC: ~p.~n",[UserName]),
             ok;

@@ -32,6 +32,7 @@ updater(Sock,CliLoopPid) ->
                 ["LSG"|T] -> 
                     case T of
                         ["wait"] -> io:format(" >> Lista de Juegos <<~n"),
+                                    io:format(string:centre("GameID",22)++string:centre("Player1",22)++string:centre("Player2",22)++"~n"),
                                     ok = lsg_loop(Sock),
                                     io:format(" >> Fin de la Lista <<~n~n");
                         _        -> io:format("ERROR [updater] al procesar LSG",[])
@@ -117,7 +118,8 @@ lsg_loop(Sock) ->
         {tcp, Sock, Data} ->
             case Data of
                 "LSG end" -> ok;
-                _         -> io:format(Data++"~n",[]),
+                _         -> lists:foreach(fun(X) -> io:format(string:centre(X,22),[]) end, string:tokens(Data," ")),
+                             io:format("~n",[]),
                              lsg_loop(Sock)
             end
     end.

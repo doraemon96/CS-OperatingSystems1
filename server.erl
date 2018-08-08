@@ -90,7 +90,11 @@ psocket_loop(Sock, PidBalance, UserName) ->
             end;
         %% Ante una respuesta de un pcommand la reenviamos al cliente.
         {pcommand, Msg}    ->
-            gen_tcp:send(Sock, Msg);
+            case Msg of
+                "CON valid "++NewUserName -> gen_tcp:send(Sock,Msg),
+                                             psocket_loop(Sock, PidBalance, NewUserName);
+                 _                        -> gen_tcp:send(Sock, Msg)
+            end;
         %% Ante una repentina desconexion del usuario.
         {tcp_closed, Sock} ->
             %%TODO:delete_by_username(Sock, UserName),
@@ -108,10 +112,7 @@ pcommand(Command, UserName, PidSocket) ->
     io:format("PCommand received ~p.~n",[Command]),
     case string:tokens(Command," ") of
         ["CON"|T] -> case T of
-                        [Name] ->
-                            io:format("DEBUG BEFORE ~p ~n",[Name]),
-                            PidSocket ! {pcommand, "CON "++cmd_con(Name, PidSocket)},
-                            io:format("DEBUG AFTER ~p ~n",[Name]);
+                        [Name] -> PidSocket ! {pcommand, "CON "++cmd_con(Name, PidSocket)};
                         _      -> io:format("ERROR [pcommand] mistaken CON format.~n")
                      end;
         ["NEW"|T] -> case T of

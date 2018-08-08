@@ -116,6 +116,21 @@ delete_by_username(UName) ->
     M = mnesia:activity(transaction, G),
     ok.
 
+%% inform_opponents
+get_opponents_psock(UName) ->
+    F1 = fun() ->
+            Handle = qlc:q([P#game.user2 || P <- mnesia:table(game), (P#game.user1 == UName)]),
+            qlc:e(Handle)
+         end,
+    L1 = mnesia:activity(transaction, F1),
+    F2 = fun() ->
+            Handle = qlc:q([P#game.user1 || P <- mnesia:table(game), (P#game.user2 == UName)]),
+            qlc:e(Handle)
+         end,
+    L2 = mnesia:activity(transaction, F2),
+    lists:map(fun(X) -> get_user_psock(X) end, L1 ++ L2).
+
+
 %% get_game_table
 %% Devuelve el tablero de un juego.
 get_game_table(GameId) ->

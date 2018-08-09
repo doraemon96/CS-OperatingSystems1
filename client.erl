@@ -42,14 +42,22 @@ updater(Sock,CliLoopPid) ->
                         [ID] -> io:format("Nuevo juego creado con ID: ~p~n", [ID]);
                         _    -> io:format("ERROR [updater] al procesar NEW",[])
                     end;
-                ["ACC"|T] -> ok; %TODO: las respuestas de acc las recibo en UPD
+                ["ACC"|T] -> 
+                    case T of
+                        ["success", ID] -> io:format("Aceptaste el juego #~p exitosamente.~n",[ID]);
+                        _               -> io:format("ERROR [updater] al procesar ACC",[])
+                    end;
                 ["PLA"|T] -> ok;
                 ["OBS"|T] -> ok;
                 ["LEA"|T] -> ok;
                 ["BYE"|T] -> ok;
                 ["UPD"|T] ->
                     case T of
-                        ["acc",GId] -> io:format("Partida #~p: Aceptada. Es su turno.~n",[GId]);
+                        ["acc",GId] -> io:format("Partida #~p: Aceptada. Es su turno.~n",[GId]),
+                                       receive
+                                           {tcp,Sock,Table} -> print_table(Table);
+                                           _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                                       end;
                         ["pla",GId] -> io:format("Partida #~p: Es su turno.~n",[GId]),
                                        receive
                                            {tcp,Sock,Table} -> print_table(Table);

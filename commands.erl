@@ -7,7 +7,6 @@
 %% Hace un llamado a la base de datos para saber si ya existe
 %% un usuario con su mismo nombre, en caso contrario lo registra.
 cmd_con(UName, PSocket) ->
-    io:format("PCOMMAND received ~p~n",[UName]),
     case user_exists(UName) of
         false -> user_add(UName, PSocket),
                  "valid "++UName;
@@ -51,8 +50,10 @@ cmd_acc(GameID, UName) ->
         not(is_integer(GID)) -> "error_notint";
         true ->
             case game_fill_room(GID, UName) of
-                valid -> user_get_psock(element(1,game_get_players(GID))) ! {pcommand, "UPD acc " ++ integer_to_list(GID)}, %FIXME
-                        "success";
+                valid -> OSock = user_get_psock(element(1,game_get_players(GID))), 
+                         OSock ! {pcommand, "UPD acc " ++ GameID}, %FIXME
+                         OSock ! {pcommand, game_get_table(GID)},
+                         "success " ++ GameID;
                 error -> "error_gfr"
             end
     end.

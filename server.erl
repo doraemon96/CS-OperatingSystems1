@@ -97,9 +97,9 @@ psocket_loop(Sock, PidBalance, UserName) ->
             end;
         %% Ante una repentina desconexion del usuario.
         {tcp_closed, Sock} ->
-            lists:foreach(fun(X) -> X ! {pcommand, "UPD disconnect " ++ UserName} end, get_opponents_psock(UserName)), %FIXME
-            delete_by_username(UserName),
-            delete_username(UserName),
+            lists:foreach(fun(X) -> X ! {pcommand, "UPD disconnect " ++ UserName} end, user_get_opponents_psock(UserName)), %FIXME
+            user_delete_all(UserName), %% Borra al usuario de toda partida (jugando y observando)
+            user_delete(UserName),     %% Borra al usuario de la base de datos de usuarios
             io:format(">> USER_DC: ~p.~n",[UserName]),
             ok;
         Default ->

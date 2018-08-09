@@ -60,7 +60,7 @@ updater(Sock,CliLoopPid) ->
                                            {tcp,Sock,Table} -> print_table(Table);
                                            _                -> io:format("ERROR: [updater] al recibir tabla.~n")
                                        end;
-                        ["disconnect",UName] -> io:format("Usuarie ~p se ha desconectado.~n",[UName])
+                        ["disconnect",UName] -> io:format("~n~nUsuarie ~p se ha desconectado.~n~n~n",[UName])
                     end;
                 Default -> io:format("ERROR: [updater] al recibir paquete \"~p\".~n",[Default])
             end;

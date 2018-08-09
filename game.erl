@@ -5,24 +5,23 @@
                user2 = "*waiting*", 
                table = [[0,0,0],[0,0,0],[0,0,0]], 
                observers=[]}).
-%% TODO: Recordar que antes era una lista de psockets, ahora es una lista de UNames y obtenemos PSocket con get_user_psock
 -record(user, {name, psock}).
 
 %% *************************************************************** %%
 %% ***** Funciones para agregar o quitar de la base de datos ***** %%
 %% *************************************************************** %%
 
-%% add_username
+%% user_add
 %% Agrega un usuario a la base de datos si es posible
-add_username(UName, PSock) ->
+user_add(UName, PSock) ->
     F = fun() ->
             mnesia:write(#user{name=UName, psock=PSock})
         end,
     mnesia:activity(transaction, F).
 
-%% exists_username
+%% user_exists
 %% True si el usuario existe, caso contrario, False
-exists_username(UName) ->
+user_exists(UName) ->
     F = fun() ->
             case mnesia:read({user, UName}) of 
                 [] -> 
@@ -33,15 +32,15 @@ exists_username(UName) ->
         end,
     mnesia:activity(transaction, F). 
 
-%% delete_username
+%% user_delete
 %% Elimina un usuario de la base de datos
-delete_username(UName) ->
+user_delete(UName) ->
     F = fun() ->
             mnesia:delete({user, UName})
         end,
     mnesia:activity(transaction, F).
 
-get_user_psock(UName) ->
+user_get_psock(UName) ->
     F = fun() ->
             case mnesia:read({user, UName}) of
                 [T] -> erlang:element(3, T);
@@ -55,19 +54,19 @@ get_user_psock(UName) ->
 %% ***** Funciones de logica del juego ***** %%
 %% ***************************************** %%
 
-%% create_game
+%% game_create
 %% Crea un nuevo juego en la tabla de mnesia con un gameId unico
 %% y deja vacia la posicion del segundo jugador.
-create_game(GameId, UName) ->
+game_create(GameId, UName) ->
     F = fun() ->
             mnesia:write(#game{gameid=GameId,
                                user1=UName})
         end,
     mnesia:activity(transaction, F).
 
-%% list_games
+%% game_list_all
 %% Hace una query en mnesia por todas las tablas de juego.
-list_games() ->
+game_list_all() ->
     F = fun() -> 
           Handle = qlc:q([P || P <- mnesia:table(game)]),
           qlc:e(Handle)
@@ -90,23 +89,23 @@ game_fill_room(GameID,UName) ->
 
 %% delete_game
 %% Elimina todos los registros en mnesia con el gameId dado.
-delete_game(GameId) ->
+game_delete(GameId) ->
     F = fun() ->
             mnesia:delete({game, GameId})
         end,
     mnesia:activity(transaction, F).
 
-%% delete_by_username
+%% user_delete_all
 %% Elimina los juegos en los que participa el usuario y lo quita
 %% de la lista de observadores de todos los juegos.
-delete_by_username(UName) ->
+user_delete_all(UName) ->
     %% Lo elimina de todas las partidas en las que participa
     F = fun() -> 
             Handle = qlc:q([P#game.gameid || P <- mnesia:table(game), (P#game.user1 == UName) or (P#game.user2 == UName)]),
             qlc:e(Handle)
         end,
     L = mnesia:activity(transaction, F),
-    lists:foreach(fun(X) -> delete_game(X) end, L),
+    lists:foreach(fun(X) -> game_delete(X) end, L),
     %% Lo elimina de todas las listas de observadores
     %% TODO?: No usar match_object
     G = fun() -> 
@@ -117,7 +116,7 @@ delete_by_username(UName) ->
     ok.
 
 %% inform_opponents
-get_opponents_psock(UName) ->
+user_get_opponents_psock(UName) ->
     F1 = fun() ->
             Handle = qlc:q([P#game.user2 || P <- mnesia:table(game), (P#game.user1 == UName)]),
             qlc:e(Handle)
@@ -128,12 +127,12 @@ get_opponents_psock(UName) ->
             qlc:e(Handle)
          end,
     L2 = mnesia:activity(transaction, F2),
-    lists:map(fun(X) -> get_user_psock(X) end, L1 ++ L2).
+    lists:map(fun(X) -> user_get_psock(X) end, L1 ++ L2).
 
 
-%% get_game_table
+%% game_get_table
 %% Devuelve el tablero de un juego.
-get_game_table(GameId) ->
+game_get_table(GameId) ->
     F = fun() ->
             case mnesia:read({game, GameId}) of
                 [T] -> erlang:element(5, T);
@@ -142,9 +141,9 @@ get_game_table(GameId) ->
         end,
     mnesia:activity(transaction, F).
 
-%% get_game_players
+%% game_get_players
 %% Devuelve una tupla de jugadores.
-get_game_players(GameId) ->
+game_get_players(GameId) ->
     F = fun() ->
             case mnesia:read({game, GameId}) of
                 [T] -> 
@@ -157,14 +156,14 @@ get_game_players(GameId) ->
         end,
     mnesia:activity(transaction, F).
 
-%% set_game_table 
+%% game_set_table 
 %% Cambia el tablero segun una jugada y devuelve true si la jugada fue
 %% posible, y false si no.
-set_game_table(PCmd, GameId, Table, UName) ->
-    OldTable   = get_game_table(GameId),
-    IsTurn     = is_turn(GameId, OldTable, UName),
+game_set_table(PCmd, GameId, Table, UName) ->
+    OldTable   = game_get_table(GameId),
+    IsTurn     = game_is_turn(GameId, OldTable, UName),
     if IsTurn -> 
-        case is_table_impossible(OldTable, Table) of
+        case table_impossible(OldTable, Table) of
             true  -> OldTable;
             false -> F = fun() ->
                             [R] = mnesia:wread({game, GameId}), 
@@ -178,19 +177,19 @@ set_game_table(PCmd, GameId, Table, UName) ->
         true -> OldTable
     end.
 
-%% is_turn
+%% game_is_turn
 %% devuelve true si le toca al jugador llamante,
 %% false caso contrario.
-is_turn(GameId, OldTable, UserName) ->
-    {U1, U2} = get_game_players(GameId),
+game_is_turn(GameId, OldTable, UserName) ->
+    {U1, U2} = game_get_players(GameId),
     case (lists:foldl(fun(X, Sum) -> if X == 0 -> 1 + Sum; true -> Sum end end, 0, lists:flatten(OldTable))) rem 2 of
         0 -> UserName == U2;
         _ -> UserName == U1
     end.
 
-%% is_table_impossible
+%% table_impossible
 %% Booleano que idica si NO se puede hacer la jugada.
-is_table_impossible(TableIn, TableOut) ->
+table_impossible(TableIn, TableOut) ->
     table_checkmultimove(TableIn, TableOut) or table_checksuperpos(TableIn, TableOut).
 
 table_checkmultimove(TableIn, TableOut) ->
@@ -212,9 +211,9 @@ table_checksuperpos(TableIn, TableOut) ->
                     Zip),
     not lists:all(fun(X) -> X end, Fea).
 
-%% is_game_won
+%% game_is_won
 %% Muestra si el juego fue ganado
-is_game_won(Table) ->
+game_is_won(Table) ->
     table_checkrow(Table) or table_checkcol(Table) or table_checkdiagonal(Table).
 
 table_checkrow(Table) ->
@@ -241,26 +240,26 @@ table_checkdiagonal(Table) ->
         and (lists:nth(3, lists:nth(1,Table)) /= 0),
     Diag1 or Diag2.
 
-%% is_game_tie
+%% game_is_tie
 %% Devuelve true si se ocuparon
 %% todos los espacios del tablero.
-is_game_tie(Table) ->
+game_is_tie(Table) ->
     F = fun(X) -> X == 0 end,
     not lists:any(fun(X) -> X end, (lists:map(F, lists:flatten(Table)))).
 
-%% is_game_over
+%% game_is_over
 %% Determina si el juego acabó.
-is_game_over(Table) ->
-    is_game_tie(Table) or is_game_won(Table).
+game_is_over(Table) ->
+    game_is_tie(Table) or game_is_won(Table).
 
-%% make_play
+%% table_make_play
 %% Guarda la jugada en la tabla.
-make_play(UserName, GameId, Play) ->
-    OldTable = get_game_table(GameId),
-    {U1, U2} = get_game_players(GameId),
+table_make_play(UserName, GameId, Play) ->
+    OldTable = game_get_table(GameId),
+    {U1, U2} = game_get_players(GameId),
     Num      = if UserName == U1 -> 1; true -> 2 end,
     [H | T]  = Play,
-    IsGameOver = is_game_over(OldTable),
+    IsGameOver = game_is_over(OldTable),
     case IsGameOver of
         true -> game_over;
         _    ->
@@ -297,7 +296,7 @@ make_play(UserName, GameId, Play) ->
             end
     end.
 
-%% Funcion auxiliar de make_play, para setear
+%% Funcion auxiliar de table_make_play, para setear
 %% la posicion indicada.
 set_nth_list([H | T], Number, Element) ->
     case Number of
@@ -307,7 +306,7 @@ set_nth_list([H | T], Number, Element) ->
             [H] ++ set_nth_list(T, Number - 1, Element)
     end.
        
-%% Funcion auxiliar de make_play, para ver que la jugada
+%% Funcion auxiliar de table_make_play, para ver que la jugada
 %% tenga el formato indicado.
 get_number(Tail) ->
     case Tail of

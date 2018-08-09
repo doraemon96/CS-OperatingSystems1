@@ -57,3 +57,27 @@ cmd_acc(GameID, UName) ->
                 error -> "error_gfr"
             end
     end.
+
+
+%% PLA
+%%
+cmd_pla(GameID, UName, Play) ->
+    T = game_get_table(GameID),
+    case T of
+        nil   -> io:format("Error en cmd_pla~n~n",[]),
+                 "error";
+        Table -> MakePlay = table_make_play(UName, GameID, Play),
+                 case MakePlay of
+                     game_over -> "error"; %%FIXME
+                     error     -> "error";
+                     NewTable  -> SetTable = game_set_table(GameID, NewTable, UName),
+                                  if 
+                                    SetTable -> "success " ++ integer_to_list(GameID);
+                                    true     -> "error"
+                                  end
+                 end
+    end.
+
+
+
+

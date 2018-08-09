@@ -129,6 +129,14 @@ user_get_opponents_psock(UName) ->
     L2 = mnesia:activity(transaction, F2),
     lists:map(fun(X) -> user_get_psock(X) end, L1 ++ L2).
 
+%% to inform the opponent of play
+game_get_opponent(GameId, UName) ->
+    Players = game_get_players(GameId),
+    case element(1, Players) == UName of
+        true -> element(2, Players);
+        _    -> element(1, Players)
+    end.
+
 
 %% game_get_table
 %% Devuelve el tablero de un juego.
@@ -159,12 +167,12 @@ game_get_players(GameId) ->
 %% game_set_table 
 %% Cambia el tablero segun una jugada y devuelve true si la jugada fue
 %% posible, y false si no.
-game_set_table(PCmd, GameId, Table, UName) ->
+game_set_table(GameId, Table, UName) ->
     OldTable   = game_get_table(GameId),
     IsTurn     = game_is_turn(GameId, OldTable, UName),
     if IsTurn -> 
         case table_impossible(OldTable, Table) of
-            true  -> OldTable;
+            true  -> false;
             false -> F = fun() ->
                             [R] = mnesia:wread({game, GameId}), 
                             mnesia:write(R#game{table = Table})
@@ -172,9 +180,9 @@ game_set_table(PCmd, GameId, Table, UName) ->
                             %% ahora devolvemos la tabla vieja si no se pudo, la nueva caso contrario
                          end,
                      mnesia:activity(transaction, F),
-                     Table
+                     true
         end;
-        true -> OldTable
+        true -> false
     end.
 
 %% game_is_turn
@@ -257,7 +265,10 @@ game_is_over(Table) ->
 table_make_play(UserName, GameId, Play) ->
     OldTable = game_get_table(GameId),
     {U1, U2} = game_get_players(GameId),
-    Num      = if UserName == U1 -> 1; true -> 2 end,
+    Num      = case (lists:foldl(fun(X, Sum) -> if X == 0 -> 1 + Sum; true -> Sum end end, 0, lists:flatten(OldTable))) rem 2 of
+                   0 -> 2;
+                   _ -> 1
+               end, 
     [H | T]  = Play,
     IsGameOver = game_is_over(OldTable),
     case IsGameOver of

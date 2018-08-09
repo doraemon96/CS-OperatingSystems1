@@ -27,7 +27,7 @@ updater(Sock,CliLoopPid) ->
                         ["error"] -> io:format("Usuario invalido. Intente de nuevo.~n");
                         ["valid",UserName] -> io:format("Bienvenido ~p.~n", [UserName]),
                                               CliLoopPid ! {username, UserName};
-                        _         -> io:format("ERROR [updater] al procesar CON",[])
+                        _         -> io:format("ERROR [updater] al procesar CON~n",[])
                     end;
                 ["LSG"|T] -> 
                     case T of
@@ -35,19 +35,28 @@ updater(Sock,CliLoopPid) ->
                                     io:format(string:centre("GameID",22)++string:centre("Player1",22)++string:centre("Player2",22)++"~n"),
                                     ok = lsg_loop(Sock),
                                     io:format(" >> Fin de la Lista <<~n~n");
-                        _        -> io:format("ERROR [updater] al procesar LSG",[])
+                        _        -> io:format("ERROR [updater] al procesar LSG~n",[])
                     end;
                 ["NEW"|T] -> 
                     case T of 
                         [ID] -> io:format("Nuevo juego creado con ID: ~p~n", [ID]);
-                        _    -> io:format("ERROR [updater] al procesar NEW",[])
+                        _    -> io:format("ERROR [updater] al procesar NEW~n",[])
                     end;
                 ["ACC"|T] -> 
                     case T of
                         ["success", ID] -> io:format("Aceptaste el juego #~p exitosamente.~n",[ID]);
-                        _               -> io:format("ERROR [updater] al procesar ACC",[])
+                        _               -> io:format("ERROR [updater] al procesar ACC~n",[])
                     end;
-                ["PLA"|T] -> ok;
+                ["PLA"|T] ->
+                    case T of
+                        ["success", GId] ->
+                            io:format("Partida #~p: Jugada exitosa.~n",[GId]),
+                            receive
+                                {tcp, Sock, Table} -> print_table(Table);
+                                _                  -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            end;
+                        _                -> io:format("ERROR [updater] al procesar PLA~n",[])
+                    end;
                 ["OBS"|T] -> ok;
                 ["LEA"|T] -> ok;
                 ["BYE"|T] -> ok;

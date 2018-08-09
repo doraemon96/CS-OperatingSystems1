@@ -93,6 +93,12 @@ psocket_loop(Sock, PidBalance, UserName) ->
             case Msg of
                 "CON valid "++NewUserName -> gen_tcp:send(Sock,Msg),
                                              psocket_loop(Sock, PidBalance, NewUserName);
+                "PLA success "++GameID    -> gen_tcp:send(Sock,Msg),
+                                             GID = element(1, string:to_integer(GameID)),
+                                             gen_tcp:send(Sock, game_get_table(GID)),
+                                             PidSocket2 = user_get_psock(game_get_opponent(GID, UserName)),
+                                             PidSocket2 ! {pcommand, "UPD pla " ++ GameID},
+                                             PidSocket2 ! {pcommand, game_get_table(GID)};
                  _                        -> gen_tcp:send(Sock, Msg)
             end;
         %% Ante una repentina desconexion del usuario.
@@ -103,7 +109,7 @@ psocket_loop(Sock, PidBalance, UserName) ->
             io:format(">> USER_DC: ~p.~n",[UserName]),
             ok;
         Default ->
-            io:format("ERROR [psocket_loop] mensaje desconocido ~p~n.", [Default]),
+            io:format("ERROR [psocket_loop] mensaje desconocido ~p.~n", [Default]),
             ok
     end,
     psocket_loop(Sock,PidBalance,UserName).
@@ -131,7 +137,11 @@ pcommand(Command, UserName, PidSocket) ->
                             PidSocket ! {pcommand, "LSG end"};
                         _  -> io:format("ERROR [pcommand] mistaken LSG format.~n")
                      end;
-        ["PLA"|T] -> PidSocket ! {pcommand, ok};
+        ["PLA"|T] -> case T of
+                        [GameID, Play] -> GID = element(1, string:to_integer(GameID)),
+                                          PidSocket ! {pcommand, "PLA " ++ cmd_pla(GID, UserName, Play)};
+                        _              -> io:format("ERROR [pcommand] mistaken PLA format.~n")
+                     end;
         ["OBS"|T] -> PidSocket ! {pcommand, ok};
         ["LEA"|T] -> PidSocket ! {pcommand, ok};
         ["BYE"|T] -> PidSocket ! {pcommand, ok};

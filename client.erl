@@ -49,11 +49,16 @@ updater(Sock,CliLoopPid) ->
                     end;
                 ["PLA"|T] ->
                     case T of
-                        ["success", GId] ->
+                        ["success", GId|T2] ->
                             io:format("Partida #~p: Jugada exitosa.~n",[GId]),
                             receive
                                 {tcp, Sock, Table} -> print_table(Table);
                                 _                  -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            end,
+                            case T2 of
+                                ["tie"]       -> io:format("+-+-+-+-+-+-+-+- EMPATE -+-+-+-+-+-+-+-+~n~n");
+                                ["won", User] -> io:format("+-+-+-+-+-+-+-+- " ++ User ++ " GANÓ -+-+-+-+-+-+-+-+~n~n");
+                                _             -> ok
                             end;
                         _                -> io:format("ERROR [updater] al procesar PLA~n",[])
                     end;
@@ -62,21 +67,38 @@ updater(Sock,CliLoopPid) ->
                 ["BYE"|T] -> ok;
                 ["UPD"|T] ->
                     case T of
-                        ["acc",GId] -> io:format("Partida #~p: Aceptada. Es su turno.~n",[GId]),
-                                       receive
-                                           {tcp,Sock,Table} -> print_table(Table);
-                                           _                -> io:format("ERROR: [updater] al recibir tabla.~n")
-                                       end;
-                        ["pla",GId] -> io:format("Partida #~p: Es su turno.~n",[GId]),
-                                       receive
-                                           {tcp,Sock,Table} -> print_table(Table);
-                                           _                -> io:format("ERROR: [updater] al recibir tabla.~n")
-                                       end;
-                        ["obs",GId] -> io:format("Partida #~p: Observando.~n",[GId]),
-                                       receive
-                                           {tcp,Sock,Table} -> print_table(Table);
-                                           _                -> io:format("ERROR: [updater] al recibir tabla.~n")
-                                       end;
+                        ["acc",GID] -> 
+                            io:format("Partida #~p: Aceptada. Es su turno.~n",[GID]),
+                            receive
+                                {tcp,Sock,Table} -> print_table(Table);
+                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            end;
+                        ["pla",GID,"tie"]      -> 
+                            io:format("Partida #~p:~n",[GID]),
+                            receive
+                                {tcp,Sock,Table} -> print_table(Table);
+                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            end,
+                            io:format("+-+-+-+-+-+-+-+- EMPATE -+-+-+-+-+-+-+-+~n~n");
+                        ["pla",GID,"won",User] -> 
+                            io:format("Partida #~p:~n",[GID]),
+                            receive
+                                {tcp,Sock,Table} -> print_table(Table);
+                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            end,
+                            io:format("+-+-+-+-+-+-+-+- " ++ User ++ " GANÓ -+-+-+-+-+-+-+-+~n~n");
+                        ["pla",GID,"continue"] -> 
+                            io:format("Partida #~p: Es su turno.~n",[GID]),
+                            receive
+                                {tcp,Sock,Table} -> print_table(Table);
+                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            end;
+                        ["obs",GID] -> 
+                            io:format("Partida #~p: Observando.~n",[GID]),
+                            receive
+                                {tcp,Sock,Table} -> print_table(Table);
+                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            end;
                         ["disconnect",UName] -> io:format("~n~nUsuarie ~p se ha desconectado.~n~n~n",[UName])
                     end;
                 Default -> io:format("ERROR: [updater] al recibir paquete \"~p\".~n",[Default])

@@ -72,12 +72,8 @@ cmd_pla(GameID, UName, Play) ->
                      error     -> "error";
                      NewTable  -> SetTable = game_set_table(GameID, NewTable, UName),
                                   if 
-                                    SetTable -> "success " ++ integer_to_list(GameID);
+                                    SetTable -> "success " ++ integer_to_list(GameID) ++ game_status(GameID,UName);
                                     true     -> "error"
                                   end
                  end
     end.
-
-
-
-

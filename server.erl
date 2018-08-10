@@ -93,12 +93,17 @@ psocket_loop(Sock, PidBalance, UserName) ->
             case Msg of
                 "CON valid "++NewUserName -> gen_tcp:send(Sock,Msg),
                                              psocket_loop(Sock, PidBalance, NewUserName);
-                "PLA success "++GameID    -> gen_tcp:send(Sock,Msg),
+                "PLA success "++Tail      -> gen_tcp:send(Sock,Msg),
+                                             [GameID|Status] = string:tokens(Tail, " "),
                                              GID = element(1, string:to_integer(GameID)),
                                              gen_tcp:send(Sock, game_get_table(GID)),
                                              PidSocket2 = user_get_psock(game_get_opponent(GID, UserName)),
-                                             PidSocket2 ! {pcommand, "UPD pla " ++ GameID},
-                                             PidSocket2 ! {pcommand, game_get_table(GID)};
+                                             PidSocket2 ! {pcommand, "UPD pla " ++ Tail },
+                                             PidSocket2 ! {pcommand, game_get_table(GID)},
+                                             case Status of
+                                                ["continue"] -> ok;
+                                                _            -> game_delete(GID)
+                                             end;
                  _                        -> gen_tcp:send(Sock, Msg)
             end;
         %% Ante una repentina desconexion del usuario.

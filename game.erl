@@ -89,9 +89,9 @@ game_fill_room(GameID,UName) ->
 
 %% delete_game
 %% Elimina todos los registros en mnesia con el gameId dado.
-game_delete(GameId) ->
+game_delete(GameID) ->
     F = fun() ->
-            mnesia:delete({game, GameId})
+            mnesia:delete({game, GameID})
         end,
     mnesia:activity(transaction, F).
 
@@ -118,18 +118,18 @@ user_delete_all(UName) ->
 %% inform_opponents
 user_get_opponents_psock(UName) ->
     F1 = fun() ->
-            Handle = qlc:q([P#game.user2 || P <- mnesia:table(game), (P#game.user1 == UName)]),
+            Handle = qlc:q([P#game.user2 || P <- mnesia:table(game), (P#game.user1 == UName), (P#game.user2 =/= "*waiting*")]),
             qlc:e(Handle)
          end,
     L1 = mnesia:activity(transaction, F1),
     F2 = fun() ->
-            Handle = qlc:q([P#game.user1 || P <- mnesia:table(game), (P#game.user2 == UName)]),
+            Handle = qlc:q([P#game.user1 || P <- mnesia:table(game), (P#game.user2 == UName), (P#game.user1 =/= "*waiting*")]),
             qlc:e(Handle)
          end,
     L2 = mnesia:activity(transaction, F2),
     lists:map(fun(X) -> user_get_psock(X) end, L1 ++ L2).
 
-%% to inform the opponent of play
+%% gets a game's opponent
 game_get_opponent(GameId, UName) ->
     Players = game_get_players(GameId),
     case element(1, Players) == UName of
@@ -169,7 +169,7 @@ game_get_players(GameId) ->
 %% posible, y false si no.
 game_set_table(GameId, Table, UName) ->
     OldTable   = game_get_table(GameId),
-    IsTurn     = game_is_turn(GameId, OldTable, UName),
+    IsTurn     = game_is_turn(GameId, UName),
     if IsTurn -> 
         case table_impossible(OldTable, Table) of
             true  -> false;
@@ -188,8 +188,9 @@ game_set_table(GameId, Table, UName) ->
 %% game_is_turn
 %% devuelve true si le toca al jugador llamante,
 %% false caso contrario.
-game_is_turn(GameId, OldTable, UserName) ->
-    {U1, U2} = game_get_players(GameId),
+game_is_turn(GameID, UserName) ->
+    {U1, U2} = game_get_players(GameID),
+    OldTable = game_get_table(GameID),
     case (lists:foldl(fun(X, Sum) -> if X == 0 -> 1 + Sum; true -> Sum end end, 0, lists:flatten(OldTable))) rem 2 of
         0 -> UserName == U2;
         _ -> UserName == U1
@@ -259,6 +260,23 @@ game_is_tie(Table) ->
 %% Determina si el juego acabó.
 game_is_over(Table) ->
     game_is_tie(Table) or game_is_won(Table).
+
+%% game_status
+%% Indica si el juego sigue en curso
+%% o quien gano en caso contrario
+game_status(GameID, UName) ->
+    Table = game_get_table(GameID),
+    case game_is_tie(Table) of
+        true -> " tie";
+        _    -> case game_is_won(Table) of 
+                    true -> 
+                        IsTurn = game_is_turn(GameID, UName), 
+                        if IsTurn -> " won " ++ game_get_opponent(GameID, UName);
+                           true   -> " won " ++ UName
+                        end;
+                    _    -> " continue"
+                end
+    end. 
 
 %% table_make_play
 %% Guarda la jugada en la tabla.

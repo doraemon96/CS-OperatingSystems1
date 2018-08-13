@@ -100,6 +100,9 @@ psocket_loop(Sock, PidBalance, UserName) ->
                                              PidSocket2 = user_get_psock(game_get_opponent(GID, UserName)),
                                              PidSocket2 ! {pcommand, "UPD pla " ++ Tail },
                                              PidSocket2 ! {pcommand, game_get_table(GID)},
+                                             lists:foreach(fun(X) -> X ! {pcommand, "UPD obs " ++ Tail}, 
+                                                                     X ! {pcommand, game_get_table(GID)} end, 
+                                                                     game_get_observers_psock(GID)),
                                              case Status of
                                                 ["continue"] -> ok;
                                                 _            -> game_delete(GID)
@@ -108,11 +111,9 @@ psocket_loop(Sock, PidBalance, UserName) ->
             end;
         %% Ante una repentina desconexion del usuario.
         {tcp_closed, Sock} ->
-            lists:foreach(fun(X) -> X ! {pcommand, "UPD disconnect " ++ UserName} end, user_get_opponents_psock(UserName)), %FIXME
-            user_delete_all(UserName), %% Borra al usuario de toda partida (jugando y observando)
-            user_delete(UserName),     %% Borra al usuario de la base de datos de usuarios
+            lists:foreach(fun(X) -> X ! {pcommand, "UPD disconnect " ++ UserName} end, cmd_bye(UserName)),
             io:format(">> USER_DC: ~p.~n",[UserName]),
-            ok;
+            exit(disconnect);
         Default ->
             io:format("ERROR [psocket_loop] mensaje desconocido ~p.~n", [Default]),
             ok
@@ -147,9 +148,21 @@ pcommand(Command, UserName, PidSocket) ->
                                           PidSocket ! {pcommand, "PLA " ++ cmd_pla(GID, UserName, Play)};
                         _              -> io:format("ERROR [pcommand] mistaken PLA format.~n")
                      end;
-        ["OBS"|T] -> PidSocket ! {pcommand, ok};
-        ["LEA"|T] -> PidSocket ! {pcommand, ok};
-        ["BYE"|T] -> PidSocket ! {pcommand, ok};
+        ["OBS"|T] -> case T of 
+                        [GameID] -> GID = element(1, string:to_integer(GameID)),
+                                    PidSocket ! {pcommand, "OBS " ++ cmd_obs(GID, UserName)};
+                        _        -> io:format("ERROR [pcommand] mistaken OBS format.~n")
+                     end;
+        ["LEA"|T] -> case T of
+                        [GameID] -> GID = element(1, string:to_integer(GameID)),
+                                    PidSocket ! {pcommand, "LEA " ++ cmd_lea(GID, UserName)};
+                        _        -> io:format("ERROR [pcommand] mistaken LEA format.~n")
+                     end;
+        ["BYE"|T] -> case T of
+                        [] -> %lists:foreach(fun(X) -> X ! {pcommand, "UPD disconnect " ++ UserName} end, cmd_bye(UserName)),
+                              PidSocket ! {pcommand, "BYE"};
+                        _  -> io:format("ERROR [pcommand] mistaken BYE format.~n")
+                     end;
         _         -> io:format("ERROR [pcommand] command \"~p\" not found.~n",[Command])
     end.
         

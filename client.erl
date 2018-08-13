@@ -64,7 +64,8 @@ updater(Sock,CliLoopPid) ->
                     end;
                 ["OBS"|T] -> ok;
                 ["LEA"|T] -> ok;
-                ["BYE"|T] -> ok;
+                ["BYE"|T] -> gen_tcp:close(Sock),
+                             ok;
                 ["UPD"|T] ->
                     case T of
                         ["acc",GID] -> 
@@ -73,31 +74,27 @@ updater(Sock,CliLoopPid) ->
                                 {tcp,Sock,Table} -> print_table(Table);
                                 _                -> io:format("ERROR: [updater] al recibir tabla.~n")
                             end;
-                        ["pla",GID,"tie"]      -> 
+                        ["pla",GID|Status] -> 
                             io:format("Partida #~p:~n",[GID]),
                             receive
                                 {tcp,Sock,Table} -> print_table(Table);
                                 _                -> io:format("ERROR: [updater] al recibir tabla.~n")
                             end,
-                            io:format("+-+-+-+-+-+-+-+- EMPATE -+-+-+-+-+-+-+-+~n~n");
-                        ["pla",GID,"won",User] -> 
-                            io:format("Partida #~p:~n",[GID]),
-                            receive
-                                {tcp,Sock,Table} -> print_table(Table);
-                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
-                            end,
-                            io:format("+-+-+-+-+-+-+-+- " ++ User ++ " GANÓ -+-+-+-+-+-+-+-+~n~n");
-                        ["pla",GID,"continue"] -> 
-                            io:format("Partida #~p: Es su turno.~n",[GID]),
-                            receive
-                                {tcp,Sock,Table} -> print_table(Table);
-                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            case Status of 
+                                ["tie"]       -> io:format("+-+-+-+-+-+-+-+- EMPATE -+-+-+-+-+-+-+-+~n~n");
+                                ["won", User] -> io:format("+-+-+-+-+-+-+-+- " ++ User ++ " GANÓ -+-+-+-+-+-+-+-+~n~n");
+                                ["continue"]  -> io:format("+-+-+-+-+-+-+-+- " ++ "Juego en curso" ++ " -+-+-+-+-+-+-+-+~n~n")
                             end;
-                        ["obs",GID] -> 
+                        ["obs",GID|Status] -> 
                             io:format("Partida #~p: Observando.~n",[GID]),
                             receive
                                 {tcp,Sock,Table} -> print_table(Table);
                                 _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                            end,
+                            case Status of 
+                                ["tie"]       -> io:format("+-+-+-+-+-+-+-+- EMPATE -+-+-+-+-+-+-+-+~n~n");
+                                ["won", User] -> io:format("+-+-+-+-+-+-+-+- " ++ User ++ " GANÓ -+-+-+-+-+-+-+-+~n~n");
+                                ["continue"]  -> io:format("+-+-+-+-+-+-+-+- " ++ "Juego en curso" ++ " -+-+-+-+-+-+-+-+~n~n")
                             end;
                         ["disconnect",UName] -> io:format("~n~nUsuarie ~p se ha desconectado.~n~n~n",[UName])
                     end;

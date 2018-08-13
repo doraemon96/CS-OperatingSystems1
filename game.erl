@@ -129,6 +129,21 @@ user_get_opponents_psock(UName) ->
     L2 = mnesia:activity(transaction, F2),
     lists:map(fun(X) -> user_get_psock(X) end, L1 ++ L2).
 
+%% user_get_observers_psock
+user_get_observers_psock(UName) ->
+    F1 = fun() ->
+            Handle = qlc:q([P#game.observers || P <- mnesia:table(game), (P#game.user1 == UName)]),
+            qlc:e(Handle)
+         end,
+    L1 = mnesia:activity(transaction, F1),
+    F2 = fun() ->
+            Handle = qlc:q([P#game.observers || P <- mnesia:table(game), (P#game.user2 == UName)]),
+            qlc:e(Handle)
+         end,
+    L2 = mnesia:activity(transaction, F2),
+    io:format("L1 ++ L2 : ~p ~n~n",[L1 ++ L2]),
+    lists:map(fun(X) -> user_get_psock(X) end, list_flatten(L1 ++ L2)).
+
 %% gets a game's opponent
 game_get_opponent(GameId, UName) ->
     Players = game_get_players(GameId),
@@ -278,6 +293,40 @@ game_status(GameID, UName) ->
                 end
     end. 
 
+%% game_add_observer
+game_add_observer(GameId, UName) ->
+    F = fun() -> R = mnesia:read({game,GameId}),
+                 case R of
+                    []  -> "error";
+                    [G] -> Observers = [UName | erlang:element(6,G)],
+                           mnesia:write(G#game{observers = Observers}),
+                           "success"
+                 end
+        end,
+    mnesia:activity(transaction, F).
+
+%% game_get_observers_psock(GID)),
+game_get_observers_psock(GameID) ->
+    F = fun() ->
+            case mnesia:read({game, GameID}) of
+                [T] -> erlang:element(6, T);
+                _   -> nil
+            end
+        end,
+    lists:map(fun(X) -> user_get_psock(X) end, mnesia:activity(transaction, F)).
+
+%% game_delete_observer
+game_delete_observer(GameID, UName) ->
+    F = fun() ->
+            case mnesia:read({game, GameID}) of
+                [G] -> Observers = lists:delete(UName, element(6, G)),
+                       mnesia:write(G#game{observers = Observers}),
+                       "success";
+                _   -> "error"
+            end
+        end,
+    mnesia:activity(transaction, F).
+
 %% table_make_play
 %% Guarda la jugada en la tabla.
 table_make_play(UserName, GameId, Play) ->
@@ -349,4 +398,10 @@ get_number(Tail) ->
             catch
                 _:_ -> error
             end
-    end.    
+    end.
+
+list_flatten(List) ->
+    case List of
+        [H|T] -> H ++ list_flatten(T);
+        []    -> []
+    end.

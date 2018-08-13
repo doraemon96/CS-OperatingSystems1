@@ -77,3 +77,24 @@ cmd_pla(GameID, UName, Play) ->
                                   end
                  end
     end.
+
+%% OBS
+%% Dado un juego y un usuario, agrega el usuario a
+%% la lista de observadores del juego.
+cmd_obs(GameID, UName) ->
+    game_add_observer(GameID, UName).
+
+
+%% LEA
+%%
+cmd_lea(GameID, UName) ->
+    game_delete_observer(GameID, UName).
+
+
+%% BYE
+%%
+cmd_bye(UName) ->
+    List = user_get_opponents_psock(UName) ++ user_get_observers_psock(UName),
+    user_delete_all(UName),
+    user_delete(UName),
+    List.

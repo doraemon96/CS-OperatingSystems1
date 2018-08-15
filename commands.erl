@@ -50,10 +50,7 @@ cmd_acc(GameID, UName) ->
         not(is_integer(GID)) -> "error_notint";
         true ->
             case game_fill_room(GID, UName) of
-                valid -> OSock = user_get_psock(element(1, game_get_players(GID))), 
-                         OSock ! {pcommand, "UPD acc " ++ GameID}, %FIXME
-                         OSock ! {pcommand, game_get_table(GID)},
-                         "success " ++ GameID;
+                valid -> "success " ++ GameID;
                 error -> "error_gfr"
             end
     end.

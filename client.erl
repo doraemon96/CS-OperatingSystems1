@@ -6,51 +6,51 @@
 
 %% Client: inicializa el proceso de cliente
 %%  spawnea un escucha del servidor y continua a procesar comandos locales
-start(Host,Port) ->
-    {ok,Sock} = gen_tcp:connect(Host, Port, [list, {packet,4}]),
+start(Host, Port) ->
+    {ok, Sock} = gen_tcp:connect(Host, Port, [list, {packet,4}]),
     io:format("~n>> Bienvenido al server de TaTeTi! <<~n"),
     io:format(">> Escriba \"help\" para una lista de comandos disponibles <<~n~n"),
-    UpdaterPid = spawn(?MODULE,updater,[Sock, self()]),
-    gen_tcp:controlling_process(Sock,UpdaterPid),
-    client_loop(1,"",UpdaterPid).
+    UpdaterPid = spawn(?MODULE, updater, [Sock, self()]),
+    gen_tcp:controlling_process(Sock, UpdaterPid),
+    client_loop(1, "", UpdaterPid).
 
 %% Updater: procesa mensajes entrantes
 %%  actua como intermediario inmediato entre el cliente y el servidor
-updater(Sock,CliLoopPid) ->
+updater(Sock, CliLoopPid) ->
     receive
         %% Ante una respuesta del servidor la procesamos aca
         {tcp, Sock, Data} -> 
-            io:format("Updater received \"~p\"~n",[Data]),
-            case string:tokens(Data," ") of
-                ["CON"|T] ->
+            io:format("Updater received \"~p\"~n", [Data]),
+            case string:tokens(Data, " ") of
+                ["CON" | T] ->
                     case T of
                         ["error"] -> io:format("Usuario invalido. Intente de nuevo.~n");
-                        ["valid",UserName] -> io:format("Bienvenido ~p.~n", [UserName]),
+                        ["valid", UserName] -> io:format("Bienvenido ~p.~n", [UserName]),
                                               CliLoopPid ! {username, UserName};
-                        _         -> io:format("ERROR [updater] al procesar CON~n",[])
+                        _         -> io:format("ERROR [updater] al procesar CON~n", [])
                     end;
-                ["LSG"|T] -> 
+                ["LSG" | T] -> 
                     case T of
                         ["wait"] -> io:format(" >> Lista de Juegos <<~n"),
-                                    io:format(string:centre("GameID",22)++string:centre("Player1",22)++string:centre("Player2",22)++"~n"),
+                                    io:format(string:centre("GameID", 22) ++ string:centre("Player1", 22) ++ string:centre("Player2", 22) ++ "~n"),
                                     ok = lsg_loop(Sock),
                                     io:format(" >> Fin de la Lista <<~n~n");
-                        _        -> io:format("ERROR [updater] al procesar LSG~n",[])
+                        _        -> io:format("ERROR [updater] al procesar LSG~n", [])
                     end;
-                ["NEW"|T] -> 
+                ["NEW" | T] -> 
                     case T of 
                         [ID] -> io:format("Nuevo juego creado con ID: ~p~n", [ID]);
-                        _    -> io:format("ERROR [updater] al procesar NEW~n",[])
+                        _    -> io:format("ERROR [updater] al procesar NEW~n", [])
                     end;
-                ["ACC"|T] -> 
+                ["ACC" | T] -> 
                     case T of
-                        ["success", ID] -> io:format("Aceptaste el juego #~p exitosamente.~n",[ID]);
-                        _               -> io:format("ERROR [updater] al procesar ACC~n",[])
+                        ["success", ID] -> io:format("Aceptaste el juego #~p exitosamente.~n", [ID]);
+                        _               -> io:format("ERROR [updater] al procesar ACC~n", [])
                     end;
-                ["PLA"|T] ->
+                ["PLA" | T] ->
                     case T of
-                        ["success", GId|T2] ->
-                            io:format("Partida #~p: Jugada exitosa.~n",[GId]),
+                        ["success", GId | T2] ->
+                            io:format("Partida #~p: Jugada exitosa.~n", [GId]),
                             receive
                                 {tcp, Sock, Table} -> print_table(Table);
                                 _                  -> io:format("ERROR: [updater] al recibir tabla.~n")
@@ -62,22 +62,22 @@ updater(Sock,CliLoopPid) ->
                             end;
                         _                -> io:format("ERROR [updater] al procesar PLA~n",[])
                     end;
-                ["OBS"|T] -> ok;
-                ["LEA"|T] -> ok;
-                ["BYE"|T] -> gen_tcp:close(Sock),
+                ["OBS" | T] -> ok;
+                ["LEA" | T] -> ok;
+                ["BYE" | T] -> gen_tcp:close(Sock),
                              ok;
-                ["UPD"|T] ->
+                ["UPD" | T] ->
                     case T of
-                        ["acc",GID] -> 
-                            io:format("Partida #~p: Aceptada. Es su turno.~n",[GID]),
+                        ["acc", GID] -> 
+                            io:format("Partida #~p: Aceptada. Es su turno.~n", [GID]),
                             receive
-                                {tcp,Sock,Table} -> print_table(Table);
-                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                                {tcp, Sock, Table} -> print_table(Table);
+                                _                  -> io:format("ERROR: [updater] al recibir tabla.~n")
                             end;
-                        ["pla",GID|Status] -> 
-                            io:format("Partida #~p:~n",[GID]),
+                        ["pla", GID | Status] -> 
+                            io:format("Partida #~p:~n", [GID]),
                             receive
-                                {tcp,Sock,Table} -> print_table(Table);
+                                {tcp, Sock, Table} -> print_table(Table);
                                 _                -> io:format("ERROR: [updater] al recibir tabla.~n")
                             end,
                             case Status of 
@@ -85,32 +85,32 @@ updater(Sock,CliLoopPid) ->
                                 ["won", User] -> io:format("+-+-+-+-+-+-+-+- " ++ User ++ " GANÓ -+-+-+-+-+-+-+-+~n~n");
                                 ["continue"]  -> io:format("+-+-+-+-+-+-+-+- " ++ "Juego en curso" ++ " -+-+-+-+-+-+-+-+~n~n")
                             end;
-                        ["obs",GID|Status] -> 
+                        ["obs", GID | Status] -> 
                             io:format("Partida #~p: Observando.~n",[GID]),
                             receive
-                                {tcp,Sock,Table} -> print_table(Table);
-                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                                {tcp, Sock, Table} -> print_table(Table);
+                                _                  -> io:format("ERROR: [updater] al recibir tabla.~n")
                             end,
                             case Status of 
                                 ["tie"]       -> io:format("+-+-+-+-+-+-+-+- EMPATE -+-+-+-+-+-+-+-+~n~n");
                                 ["won", User] -> io:format("+-+-+-+-+-+-+-+- " ++ User ++ " GANÓ -+-+-+-+-+-+-+-+~n~n");
                                 ["continue"]  -> io:format("+-+-+-+-+-+-+-+- " ++ "Juego en curso" ++ " -+-+-+-+-+-+-+-+~n~n")
                             end;
-                        ["disconnect",UName] -> io:format("~n~nUsuarie ~p se ha desconectado.~n~n~n",[UName])
+                        ["disconnect", UName] -> io:format("~n~nUsuario ~p se ha desconectado.~n~n~n", [UName])
                     end;
-                Default -> io:format("ERROR: [updater] al recibir paquete \"~p\".~n",[Default])
+                Default -> io:format("ERROR: [updater] al recibir paquete \"~p\".~n", [Default])
             end;
         %% Si llega un comando de la consola, redirigirlo al servidor
-        {client,Message} -> ok = gen_tcp:send(Sock,Message);
+        {client, Message} -> ok = gen_tcp:send(Sock,Message);
         %% Si se cae el servidor, informarle al cliente
-        {tcp_closed,_}   -> io:format("~n>> SERVIDOR CAIDO <<~n",[]);
-        Default          -> io:format("ERROR [updater] al recibir mensaje \"~p\".~n",[Default])
+        {tcp_closed, _}   -> io:format("~n>> SERVIDOR CAIDO <<~n", []);
+        Default           -> io:format("ERROR [updater] al recibir mensaje \"~p\".~n", [Default])
     end,
-    updater(Sock,CliLoopPid).
+    updater(Sock, CliLoopPid).
 
 %% Client_loop: recibe comandos de la consola
 %%  imprime la ayuda o redirecciona a updater para ser enviados al server
-client_loop(CommandNumber,UserName,UpdaterPid) ->
+client_loop(CommandNumber, UserName, UpdaterPid) ->
     receive
         {username, NewName} -> client_loop(CommandNumber, NewName, UpdaterPid)
     after 0 ->
@@ -119,11 +119,11 @@ client_loop(CommandNumber,UserName,UpdaterPid) ->
             _ -> Data = string:strip(io:get_line(UserName ++ "$ "), right, $\n),
                  case Data of
                     "help" -> print_help(),
-                              client_loop(CommandNumber,UserName,UpdaterPid);
+                              client_loop(CommandNumber, UserName, UpdaterPid);
                     "quit" -> ok; %%TODO
-                    ""     -> client_loop(CommandNumber,UserName,UpdaterPid);
+                    ""     -> client_loop(CommandNumber, UserName, UpdaterPid);
                     _      -> UpdaterPid ! {client,Data},
-                              client_loop(CommandNumber+1,UserName,UpdaterPid)
+                              client_loop(CommandNumber + 1, UserName, UpdaterPid)
                  end
         end
     end.
@@ -155,8 +155,8 @@ lsg_loop(Sock) ->
         {tcp, Sock, Data} ->
             case Data of
                 "LSG end" -> ok;
-                _         -> lists:foreach(fun(X) -> io:format(string:centre(X,22),[]) end, string:tokens(Data," ")),
-                             io:format("~n",[]),
+                _         -> lists:foreach(fun(X) -> io:format(string:centre(X, 22), []) end, string:tokens(Data, " ")),
+                             io:format("~n", []),
                              lsg_loop(Sock)
             end
     end.

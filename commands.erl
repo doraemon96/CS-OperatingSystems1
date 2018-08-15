@@ -9,7 +9,7 @@
 cmd_con(UName, PSocket) ->
     case user_exists(UName) of
         false -> user_add(UName, PSocket),
-                 "valid "++UName;
+                 "valid " ++ UName;
         _     -> "error"
     end.
 
@@ -45,12 +45,12 @@ cmd_new(UName) ->
 %% Dados un juego y un usuario, intenta unirse en la posicion
 %% del jugador2 si esta esta vacia.
 cmd_acc(GameID, UName) ->
-    GID = element(1,string:to_integer(GameID)),
+    GID = element(1, string:to_integer(GameID)),
     if 
         not(is_integer(GID)) -> "error_notint";
         true ->
             case game_fill_room(GID, UName) of
-                valid -> OSock = user_get_psock(element(1,game_get_players(GID))), 
+                valid -> OSock = user_get_psock(element(1, game_get_players(GID))), 
                          OSock ! {pcommand, "UPD acc " ++ GameID}, %FIXME
                          OSock ! {pcommand, game_get_table(GID)},
                          "success " ++ GameID;

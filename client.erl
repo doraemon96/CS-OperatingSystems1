@@ -62,10 +62,20 @@ updater(Sock, CliLoopPid) ->
                             end;
                         _                -> io:format("ERROR [updater] al procesar PLA~n",[])
                     end;
-                ["OBS" | T] -> ok;
-                ["LEA" | T] -> ok;
-                ["BYE" | T] -> gen_tcp:close(Sock),
-                             ok;
+                ["OBS" | T] -> 
+                    case T of 
+                        ["success", GId] -> io:format("Estás observando el juego #~p. ~n", [GId]);
+                        _                -> io:format("ERROR [updater] al procesar OBS~n", [])
+                    end;     
+                ["LEA" | T] -> 
+                    case T of 
+                        ["success", GId] -> io:format("Dejaste de observar el juego #~p. ~n", [GId]);
+                        _                -> io:format("ERROR [updater] al procesar LEA~n", [])
+                    end;     
+                ["BYE"] -> 
+                    io:format("Hasta luego~n"),
+                    gen_tcp:close(Sock),
+                    ok;
                 ["UPD" | T] ->
                     case T of
                         ["acc", GID] -> 

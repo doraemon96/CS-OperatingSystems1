@@ -112,7 +112,7 @@ user_delete_all(UName) ->
             R = mnesia:match_object({game, '_', '_', '_', '_', '_'}),
             lists:foreach(fun(X) -> mnesia:write(X#game{observers = lists:delete(UName, element(6, X))}) end, R)
         end,
-    M = mnesia:activity(transaction, G),
+    mnesia:activity(transaction, G),
     ok.
 
 %% inform_opponents
@@ -329,9 +329,8 @@ game_delete_observer(GameID, UName) ->
 
 %% table_make_play
 %% Guarda la jugada en la tabla.
-table_make_play(UserName, GameId, Play) ->
+table_make_play(GameId, Play) ->
     OldTable = game_get_table(GameId),
-    {U1, U2} = game_get_players(GameId),
     Num      = case (lists:foldl(fun(X, Sum) -> if X == 0 -> 1 + Sum; true -> Sum end end, 0, lists:flatten(OldTable))) rem 2 of
                    0 -> 2;
                    _ -> 1

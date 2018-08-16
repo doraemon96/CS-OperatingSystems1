@@ -130,10 +130,11 @@ client_loop(CommandNumber, UserName, UpdaterPid) ->
                  case Data of
                     "help" -> print_help(),
                               client_loop(CommandNumber, UserName, UpdaterPid);
-                    "quit" -> ok; %%TODO
+                    "quit" -> init:stop(); %%TODO
                     ""     -> client_loop(CommandNumber, UserName, UpdaterPid);
                     %% FIXME: el caso de BYE en el updater ¿No iria aca?
-                    %% "BYE"  -> ok;
+                    "BYE"  -> UpdaterPid ! {client, Data},
+                              ok;
                     _      -> UpdaterPid ! {client, Data},
                               client_loop(CommandNumber + 1, UserName, UpdaterPid)
                  end

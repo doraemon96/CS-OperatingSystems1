@@ -61,7 +61,7 @@ cmd_acc(GameID, UName) ->
 cmd_pla(GameID, UName, Play) ->
     T = game_get_table(GameID),
     case T of
-        nil -> io:format("Error en cmd_pla~n~n",[]),
+        nil -> io:format("Error en cmd_pla~n~n", []),
                  "error";
         _   -> MakePlay = table_make_play(GameID, Play),
                case MakePlay of
@@ -69,7 +69,7 @@ cmd_pla(GameID, UName, Play) ->
                    error     -> "error";
                    NewTable  -> SetTable = game_set_table(GameID, NewTable, UName),
                                 if 
-                                  SetTable -> "success " ++ integer_to_list(GameID) ++ game_status(GameID,UName);
+                                  SetTable -> "success " ++ integer_to_list(GameID) ++ game_status(GameID, UName);
                                   true     -> "error"
                                 end
                end

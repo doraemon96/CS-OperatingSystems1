@@ -17,8 +17,8 @@ start(Port, Node) ->
     mnesia:start(),
     Res = rpc:call(Node, mnesia, change_config, [extra_db_nodes, [node()]]),
     case Res of
-        {badrpc, Reason} -> io:format("ERROR [start/2] rpc returned ~p~n",[Reason]);
-        Default          -> io:format("MNESIA [rpc_call] rpc returned ~p~n",[Default])
+        {badrpc, Reason} -> io:format("ERROR [start/2] rpc returned ~p~n", [Reason]);
+        Default          -> io:format("MNESIA [rpc_call] rpc returned ~p~n", [Default])
     end,
     mnesia:change_table_copy_type(schema, node(), disc_copies),
     mnesia:add_table_copy(user, node(), disc_copies),
@@ -30,10 +30,10 @@ start(Port, Node) ->
 %%  escucha en el puerto indicado, spawnea un balanceador de carga unico y propio,
 %%  un dispatcher de mensajes, y da comienzo a la escucha de mensajes.
 server(Port) ->
-    {ok, Sock} = gen_tcp:listen(Port, [list, {packet,4}, {active,true}, {reuseaddr,true}]),
+    {ok, Sock} = gen_tcp:listen(Port, [list, {packet, 4}, {active, true}, {reuseaddr, true}]),
     
     PidStat     = spawn_link(?MODULE, pstat, []),
-    PidBalance  = spawn_link(?MODULE, pbalance, [statistics(run_queue),element(2,statistics(reductions)),node()]),
+    PidBalance  = spawn_link(?MODULE, pbalance, [statistics(run_queue), element(2, statistics(reductions)), node()]),
     global:register_name("balance" ++ atom_to_list(node()), PidBalance),
     PidDispatch = spawn_link(?MODULE, dispatcher, [Sock, PidBalance]),
 
@@ -63,7 +63,7 @@ server(Port,Server) ->
 %% Dispatcher:
 dispatcher(Sock, PidBalance) ->
     {ok, NewSock} = gen_tcp:accept(Sock),
-    io:format(">> NEW_CON: ~p~n",[NewSock]),
+    io:format(">> NEW_CON: ~p~n", [NewSock]),
     Pid = spawn(?MODULE, psocket, [NewSock, PidBalance]),
     ok = gen_tcp:controlling_process(NewSock, Pid),
     Pid ! ok,
@@ -91,82 +91,93 @@ psocket_loop(Sock, PidBalance, UserName) ->
         %% Ante una respuesta de un pcommand la reenviamos al cliente.
         {pcommand, Msg}    ->
             case Msg of
-                "CON valid "++NewUserName -> gen_tcp:send(Sock,Msg),
-                                             psocket_loop(Sock, PidBalance, NewUserName);
-                "PLA success "++Tail      -> gen_tcp:send(Sock,Msg),
-                                             [GameID|Status] = string:tokens(Tail, " "),
-                                             GID = element(1, string:to_integer(GameID)),
-                                             gen_tcp:send(Sock, game_get_table(GID)),
-                                             PidSocket2 = user_get_psock(game_get_opponent(GID, UserName)),
-                                             PidSocket2 ! {pcommand, "UPD pla " ++ Tail },
-                                             PidSocket2 ! {pcommand, game_get_table(GID)},
-                                             lists:foreach(fun(X) -> X ! {pcommand, "UPD obs " ++ Tail}, 
-                                                                     X ! {pcommand, game_get_table(GID)} end, 
-                                                                     game_get_observers_psock(GID)),
-                                             case Status of
-                                                ["continue"] -> ok;
-                                                _            -> game_delete(GID)
-                                             end;
-                "ACC succes "++GameID     ->  GID = element(1, string:to_integer(GameID)),
-                                              OSock = user_get_psock(element(1, game_get_players(GID))),
-                                              OSock ! {pcommand, "UPD acc " ++ GameID}, 
-                                              OSock ! {pcommand, game_get_table(GID)};
-                 _                        -> gen_tcp:send(Sock, Msg)
+                "CON valid " ++ NewUserName -> 
+                    gen_tcp:send(Sock, Msg),
+                    psocket_loop(Sock, PidBalance, NewUserName);
+                "PLA success " ++ Tail      -> 
+                    gen_tcp:send(Sock, Msg),
+                    [GameID|Status] = string:tokens(Tail, " "),
+                    GID = element(1, string:to_integer(GameID)),
+                    gen_tcp:send(Sock, game_get_table(GID)),
+                    PidSocket2 = user_get_psock(game_get_opponent(GID, UserName)),
+                    PidSocket2 ! {pcommand, "UPD pla " ++ Tail },
+                    PidSocket2 ! {pcommand, game_get_table(GID)},
+                    lists:foreach(fun(X) -> X ! {pcommand, "UPD obs " ++ Tail}, 
+                                            X ! {pcommand, game_get_table(GID)} end, 
+                                            game_get_observers_psock(GID)),
+                    case Status of
+                        ["continue"] -> ok;
+                        _            -> game_delete(GID)
+                    end;
+                "ACC succes "++GameID     ->  
+                    GID = element(1, string:to_integer(GameID)),
+                    OSock = user_get_psock(element(1, game_get_players(GID))),
+                    OSock ! {pcommand, "UPD acc " ++ GameID}, 
+                    OSock ! {pcommand, game_get_table(GID)};
+                 _                        ->
+                     gen_tcp:send(Sock, Msg)
             end;
         %% Ante una repentina desconexion del usuario.
         {tcp_closed, Sock} ->
             lists:foreach(fun(X) -> X ! {pcommand, "UPD disconnect " ++ UserName} end, cmd_bye(UserName)),
-            io:format(">> USER_DC: ~p.~n",[UserName]),
+            io:format(">> USER_DC: ~p.~n", [UserName]),
             exit(disconnect);
         Default ->
             io:format("ERROR [psocket_loop] mensaje desconocido ~p.~n", [Default]),
             ok
     end,
-    psocket_loop(Sock,PidBalance,UserName).
+    psocket_loop(Sock, PidBalance, UserName).
 
 %% PCommand: procesa los comandos enviados por el cliente
 pcommand(Command, UserName, PidSocket) ->
-    io:format("PCommand received ~p.~n",[Command]),
-    case string:tokens(Command," ") of
-        ["CON"|T] -> case T of
-                        [Name] -> PidSocket ! {pcommand, "CON "++cmd_con(Name, PidSocket)};
-                        _      -> io:format("ERROR [pcommand] mistaken CON format.~n")
-                     end;
-        ["NEW"|T] -> case T of
-                        [] -> PidSocket ! {pcommand, "NEW "++cmd_new(UserName)};
-                        _  -> io:format("ERROR [pcommand] mistaken NEW format.~n")
-                     end;
-        ["ACC"|T] -> case T of
-                        [GameID] -> PidSocket ! {pcommand, "ACC "++cmd_acc(GameID,UserName)};
-                        _        -> io:format("ERROR [pcommand] mistaken ACC format.~n")
-                     end;
-        ["LSG"|T] -> case T of
-                        [] ->
-                            PidSocket ! {pcommand, "LSG wait"},
-                            lists:foreach(fun(X) -> PidSocket ! {pcommand,X} end, cmd_lsg()),
-                            PidSocket ! {pcommand, "LSG end"};
-                        _  -> io:format("ERROR [pcommand] mistaken LSG format.~n")
-                     end;
-        ["PLA"|T] -> case T of
-                        [GameID, Play] -> GID = element(1, string:to_integer(GameID)),
-                                          PidSocket ! {pcommand, "PLA " ++ cmd_pla(GID, UserName, Play)};
-                        _              -> io:format("ERROR [pcommand] mistaken PLA format.~n")
-                     end;
-        ["OBS"|T] -> case T of 
-                        [GameID] -> GID = element(1, string:to_integer(GameID)),
-                                    PidSocket ! {pcommand, "OBS " ++ cmd_obs(GID, UserName)};
-                        _        -> io:format("ERROR [pcommand] mistaken OBS format.~n")
-                     end;
-        ["LEA"|T] -> case T of
-                        [GameID] -> GID = element(1, string:to_integer(GameID)),
-                                    PidSocket ! {pcommand, "LEA " ++ cmd_lea(GID, UserName)};
-                        _        -> io:format("ERROR [pcommand] mistaken LEA format.~n")
-                     end;
-        ["BYE"|T] -> case T of
-                        [] -> %lists:foreach(fun(X) -> X ! {pcommand, "UPD disconnect " ++ UserName} end, cmd_bye(UserName)),
-                              PidSocket ! {pcommand, "BYE"};
-                        _  -> io:format("ERROR [pcommand] mistaken BYE format.~n")
-                     end;
+    io:format("PCommand received ~p.~n", [Command]),
+    case string:tokens(Command, " ") of
+        ["CON" | T] -> 
+            case  T of
+                [Name] -> PidSocket ! {pcommand, "CON "++cmd_con(Name, PidSocket)};
+                _      -> io:format("ERROR [pcommand] mistaken CON format.~n")
+            end;
+        ["NEW" | T] -> 
+            case T of
+                [] -> PidSocket ! {pcommand, "NEW "++cmd_new(UserName)};
+                _  -> io:format("ERROR [pcommand] mistaken NEW format.~n")
+            end;
+        ["ACC" | T] -> 
+            case T of
+                [GameID] -> PidSocket ! {pcommand, "ACC "++cmd_acc(GameID,UserName)};
+                 _        -> io:format("ERROR [pcommand] mistaken ACC format.~n")
+            end;
+        ["LSG" | T] -> 
+            case T of
+                [] ->
+                    PidSocket ! {pcommand, "LSG wait"},
+                    lists:foreach(fun(X) -> PidSocket ! {pcommand,X} end, cmd_lsg()),
+                    PidSocket ! {pcommand, "LSG end"};
+                _  -> io:format("ERROR [pcommand] mistaken LSG format.~n")
+            end;
+        ["PLA" | T] -> 
+            case T of
+                [GameID, Play] -> GID = element(1, string:to_integer(GameID)),
+                                  PidSocket ! {pcommand, "PLA " ++ cmd_pla(GID, UserName, Play)};
+                 _              -> io:format("ERROR [pcommand] mistaken PLA format.~n")
+            end;
+        ["OBS" | T] -> 
+            case T of 
+                [GameID] -> GID = element(1, string:to_integer(GameID)),
+                            PidSocket ! {pcommand, "OBS " ++ cmd_obs(GID, UserName)};
+                _        -> io:format("ERROR [pcommand] mistaken OBS format.~n")
+            end;
+        ["LEA" | T] -> 
+            case T of
+                [GameID] -> GID = element(1, string:to_integer(GameID)),
+                            PidSocket ! {pcommand, "LEA " ++ cmd_lea(GID, UserName)};
+                _        -> io:format("ERROR [pcommand] mistaken LEA format.~n")
+            end;
+        ["BYE" | T] -> 
+            case T of
+                [] -> PidSocket ! {pcommand, "BYE"};
+                _  -> io:format("ERROR [pcommand] mistaken BYE format.~n")
+            end;
         _         -> io:format("ERROR [pcommand] command \"~p\" not found.~n",[Command])
     end.
         

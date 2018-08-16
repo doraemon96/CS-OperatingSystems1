@@ -3,8 +3,8 @@
 -record(game, {gameid, 
                user1,
                user2 = "*waiting*", 
-               table = [[0,0,0],[0,0,0],[0,0,0]], 
-               observers=[]}).
+               table = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], 
+               observers = []}).
 -record(user, {name, psock}).
 
 %% *************************************************************** %%
@@ -59,8 +59,8 @@ user_get_psock(UName) ->
 %% y deja vacia la posicion del segundo jugador.
 game_create(GameId, UName) ->
     F = fun() ->
-            mnesia:write(#game{gameid=GameId,
-                               user1=UName})
+            mnesia:write(#game{gameid = GameId,
+                               user1  = UName})
         end,
     mnesia:activity(transaction, F).
 
@@ -73,12 +73,12 @@ game_list_all() ->
         end,
     mnesia:activity(transaction, F).
 
-game_fill_room(GameID,UName) ->
+game_fill_room(GameID, UName) ->
     F = fun() -> R = mnesia:read({game, GameID}),
                  case R of
                      []  -> error;
-                     [G] -> case element(4,G) of
-                                "*waiting*" -> mnesia:write(G#game{user2=UName}),
+                     [G] -> case element(4, G) of
+                                "*waiting*" -> mnesia:write(G#game{user2 = UName}),
                                                valid;
                                 _           -> error
                             end
@@ -241,27 +241,27 @@ game_is_won(Table) ->
     table_checkrow(Table) or table_checkcol(Table) or table_checkdiagonal(Table).
 
 table_checkrow(Table) ->
-    Fea = lists:map(fun(X) -> ((lists:nth(1,X)) == lists:nth(2,X)) 
-                          and ((lists:nth(2,X)) == lists:nth(3,X)) 
-                          and (lists:nth(1,X) /= 0) %evita falsos positivos cuando el juego recien comienza
+    Fea = lists:map(fun(X) -> ((lists:nth(1, X)) == lists:nth(2, X)) 
+                          and ((lists:nth(2, X)) == lists:nth(3, X)) 
+                          and (lists:nth(1, X) /= 0) %evita falsos positivos cuando el juego recien comienza
                     end, Table), 
     lists:any(fun(X) -> X end, Fea).
 
 table_checkcol(Table) ->
-    Zip = lists:zip3(lists:nth(1,Table), lists:nth(2,Table), lists:nth(3,Table)),
-    Fea = lists:map(fun(X) -> (element(1,X) == element(2,X)) 
-                          and (element(2,X) == element(3,X))  
-                          and (element(1,X) /= 0)
+    Zip = lists:zip3(lists:nth(1, Table), lists:nth(2, Table), lists:nth(3, Table)),
+    Fea = lists:map(fun(X) -> (element(1, X) == element(2, X)) 
+                          and (element(2, X) == element(3, X))  
+                          and (element(1, X) /= 0)
                     end, Zip),
     lists:any(fun(X) -> X end, Fea).
 
 table_checkdiagonal(Table) ->
-    Diag1 = (lists:nth(1, lists:nth(1,Table)) == lists:nth(2, lists:nth(2,Table))) 
-        and (lists:nth(2, lists:nth(2,Table)) == lists:nth(3, lists:nth(3,Table)))
-        and (lists:nth(1, lists:nth(1,Table)) /= 0),
-    Diag2 = (lists:nth(3, lists:nth(1,Table)) == lists:nth(2, lists:nth(2,Table))) 
-        and (lists:nth(2, lists:nth(2,Table)) == lists:nth(1, lists:nth(3,Table)))
-        and (lists:nth(3, lists:nth(1,Table)) /= 0),
+    Diag1 = (lists:nth(1, lists:nth(1, Table)) == lists:nth(2, lists:nth(2, Table))) 
+        and (lists:nth(2, lists:nth(2, Table)) == lists:nth(3, lists:nth(3, Table)))
+        and (lists:nth(1, lists:nth(1, Table)) /= 0),
+    Diag2 = (lists:nth(3, lists:nth(1, Table)) == lists:nth(2, lists:nth(2, Table))) 
+        and (lists:nth(2, lists:nth(2, Table)) == lists:nth(1, lists:nth(3, Table)))
+        and (lists:nth(3, lists:nth(1, Table)) /= 0),
     Diag1 or Diag2.
 
 %% game_is_tie
@@ -295,7 +295,7 @@ game_status(GameID, UName) ->
 
 %% game_add_observer
 game_add_observer(GameId, UName) ->
-    F = fun() -> R = mnesia:read({game,GameId}),
+    F = fun() -> R = mnesia:read({game, GameId}),
                  case R of
                     []  -> "error";
                     [G] -> Observers = [UName | erlang:element(6,G)],

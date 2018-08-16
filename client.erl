@@ -7,7 +7,7 @@
 %% Client: inicializa el proceso de cliente
 %%  spawnea un escucha del servidor y continua a procesar comandos locales
 start(Host, Port) ->
-    {ok, Sock} = gen_tcp:connect(Host, Port, [list, {packet,4}]),
+    {ok, Sock} = gen_tcp:connect(Host, Port, [list, {packet, 4}]),
     io:format("~n>> Bienvenido al server de TaTeTi! <<~n"),
     io:format(">> Escriba \"help\" para una lista de comandos disponibles <<~n~n"),
     UpdaterPid = spawn(?MODULE, updater, [Sock, self()]),
@@ -60,7 +60,7 @@ updater(Sock, CliLoopPid) ->
                                 ["won", User] -> io:format("+-+-+-+-+-+-+-+- " ++ User ++ " GANÓ -+-+-+-+-+-+-+-+~n~n");
                                 _             -> ok
                             end;
-                        _                -> io:format("ERROR [updater] al procesar PLA~n",[])
+                        _                -> io:format("ERROR [updater] al procesar PLA~n", [])
                     end;
                 ["OBS" | T] -> 
                     case T of 
@@ -88,7 +88,7 @@ updater(Sock, CliLoopPid) ->
                             io:format("Partida #~p:~n", [GID]),
                             receive
                                 {tcp, Sock, Table} -> print_table(Table);
-                                _                -> io:format("ERROR: [updater] al recibir tabla.~n")
+                                _                  -> io:format("ERROR: [updater] al recibir tabla.~n")
                             end,
                             case Status of 
                                 ["tie"]       -> io:format("+-+-+-+-+-+-+-+- EMPATE -+-+-+-+-+-+-+-+~n~n");
@@ -96,7 +96,7 @@ updater(Sock, CliLoopPid) ->
                                 ["continue"]  -> io:format("+-+-+-+-+-+-+-+- " ++ "Juego en curso" ++ " -+-+-+-+-+-+-+-+~n~n")
                             end;
                         ["obs", GID | Status] -> 
-                            io:format("Partida #~p: Observando.~n",[GID]),
+                            io:format("Partida #~p: Observando.~n", [GID]),
                             receive
                                 {tcp, Sock, Table} -> print_table(Table);
                                 _                  -> io:format("ERROR: [updater] al recibir tabla.~n")
@@ -111,7 +111,7 @@ updater(Sock, CliLoopPid) ->
                 Default -> io:format("ERROR: [updater] al recibir paquete \"~p\".~n", [Default])
             end;
         %% Si llega un comando de la consola, redirigirlo al servidor
-        {client, Message} -> ok = gen_tcp:send(Sock,Message);
+        {client, Message} -> ok = gen_tcp:send(Sock, Message);
         %% Si se cae el servidor, informarle al cliente
         {tcp_closed, _}   -> io:format("~n>> SERVIDOR CAIDO <<~n", []);
         Default           -> io:format("ERROR [updater] al recibir mensaje \"~p\".~n", [Default])
@@ -132,7 +132,9 @@ client_loop(CommandNumber, UserName, UpdaterPid) ->
                               client_loop(CommandNumber, UserName, UpdaterPid);
                     "quit" -> ok; %%TODO
                     ""     -> client_loop(CommandNumber, UserName, UpdaterPid);
-                    _      -> UpdaterPid ! {client,Data},
+                    %% FIXME: el caso de BYE en el updater ¿No iria aca?
+                    %% "BYE"  -> ok;
+                    _      -> UpdaterPid ! {client, Data},
                               client_loop(CommandNumber + 1, UserName, UpdaterPid)
                  end
         end

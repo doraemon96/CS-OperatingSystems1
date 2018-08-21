@@ -13,7 +13,7 @@ start(Port) ->
     spawn(?MODULE, server, [Port]),
     ok. 
 
-start(Port, Node) ->
+start(Node,Port) ->
     mnesia:start(),
     Res = rpc:call(Node, mnesia, change_config, [extra_db_nodes, [node()]]),
     case Res of

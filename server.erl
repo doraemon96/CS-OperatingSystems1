@@ -135,17 +135,20 @@ pcommand(Command, UserName, PidSocket) ->
         ["CON" | T] -> 
             case  T of
                 [Name] -> PidSocket ! {pcommand, "CON "++cmd_con(Name, PidSocket)};
-                _      -> io:format("ERROR [pcommand] mistaken CON format.~n")
+                _      -> io:format("ERROR [pcommand] mistaken CON format.~n"),
+                          PidSocket ! {pcommand, "CMDE wformat CON"}
             end;
         ["NEW" | T] -> 
             case T of
                 [] -> PidSocket ! {pcommand, "NEW "++cmd_new(UserName)};
-                _  -> io:format("ERROR [pcommand] mistaken NEW format.~n")
+                _  -> io:format("ERROR [pcommand] mistaken NEW format.~n"),
+                      PidSocket ! {pcommand, "CMDE wformat NEW"}
             end;
         ["ACC" | T] -> 
             case T of
                 [GameID] -> PidSocket ! {pcommand, "ACC "++cmd_acc(GameID,UserName)};
-                 _        -> io:format("ERROR [pcommand] mistaken ACC format.~n")
+                 _        -> io:format("ERROR [pcommand] mistaken ACC format.~n"),
+                             PidSocket ! {pcommand, "CMDE wformat ACC"}
             end;
         ["LSG" | T] -> 
             case T of
@@ -153,32 +156,39 @@ pcommand(Command, UserName, PidSocket) ->
                     PidSocket ! {pcommand, "LSG wait"},
                     lists:foreach(fun(X) -> PidSocket ! {pcommand,X} end, cmd_lsg()),
                     PidSocket ! {pcommand, "LSG end"};
-                _  -> io:format("ERROR [pcommand] mistaken LSG format.~n")
+                _  -> io:format("ERROR [pcommand] mistaken LSG format.~n"),
+                      PidSocket ! {pcommand, "CMDE wformat LSG"}
             end;
         ["PLA" | T] -> 
             case T of
                 [GameID, Play] -> GID = element(1, string:to_integer(GameID)),
                                   PidSocket ! {pcommand, "PLA " ++ cmd_pla(GID, UserName, Play)};
-                 _              -> io:format("ERROR [pcommand] mistaken PLA format.~n")
+                 _              -> io:format("ERROR [pcommand] mistaken PLA format.~n"),
+                                   PidSocket ! {pcommand, "CMDE wformat PLA"}
             end;
         ["OBS" | T] -> 
             case T of 
                 [GameID] -> GID = element(1, string:to_integer(GameID)),
                             PidSocket ! {pcommand, "OBS " ++ cmd_obs(GID, UserName)};
-                _        -> io:format("ERROR [pcommand] mistaken OBS format.~n")
+                _        -> io:format("ERROR [pcommand] mistaken OBS format.~n"),
+                            PidSocket ! {pcommand, "CMDE wformat OBS"}
             end;
         ["LEA" | T] -> 
             case T of
                 [GameID] -> GID = element(1, string:to_integer(GameID)),
                             PidSocket ! {pcommand, "LEA " ++ cmd_lea(GID, UserName)};
-                _        -> io:format("ERROR [pcommand] mistaken LEA format.~n")
+                _        -> io:format("ERROR [pcommand] mistaken LEA format.~n"),
+                            PidSocket ! {pcommand, "CMDE wformat LEA"}
             end;
         ["BYE" | T] -> 
             case T of
                 [] -> PidSocket ! {pcommand, "BYE"};
-                _  -> io:format("ERROR [pcommand] mistaken BYE format.~n")
+                _  -> io:format("ERROR [pcommand] mistaken BYE format.~n"),
+                      PidSocket ! {pcommand, "CMDE wformat BYE"}
             end;
-        _         -> io:format("ERROR [pcommand] command \"~p\" not found.~n",[Command])
+        [Cmd | _]   -> io:format("ERROR [pcommand] command \"~p\" not found.~n",[Command]),
+                       PidSocket ! {pcommand, "CMDE noexist " ++ Cmd};
+        _           -> io:format("ERROR [pcommand] command \"~p\" not found.~n",[Command])
     end.
         
 %% PBalance

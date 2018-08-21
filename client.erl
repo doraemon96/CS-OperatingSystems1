@@ -20,8 +20,14 @@ updater(Sock, CliLoopPid) ->
     receive
         %% Ante una respuesta del servidor la procesamos aca
         {tcp, Sock, Data} -> 
-            io:format("Updater received \"~p\"~n", [Data]),
+            %DEBUG: io:format("Updater received \"~p\"~n", [Data]),
             case string:tokens(Data, " ") of
+                ["CMDE"|Msg] -> 
+                    case Msg of
+                        ["noexist", Cmd] -> io:format("El comando ~p no existe.~n",[Cmd]);
+                        ["wformat", Cmd] -> io:format("Parametros incorrectos en ~p.~n",[Cmd]);
+                        _                -> io:format("ERROR [updater] al procesar CMDE~n", [])
+                    end;
                 ["CON" | T] ->
                     case T of
                         ["error"] -> io:format("Usuario invalido. Intente de nuevo.~n");

@@ -10,7 +10,9 @@ start(Port) ->
     mnesia:start(),
     mnesia:create_table(user, [{attributes, record_info(fields, user)}, {disc_copies, [node()]}]),
     mnesia:create_table(game, [{attributes, record_info(fields, game)}, {disc_copies, [node()]}]),
-    spawn(?MODULE, server, [Port]),
+    Pid = spawn(?MODULE, server, [Port]),
+    receive after 10000 -> ok end,
+    Pid ! stop_server,
     ok. 
 
 start(Node,Port) ->
@@ -45,13 +47,21 @@ server(Port) ->
             exit(PidStat, Reason),
             exit(PidBalance, Reason),
             exit(PidDispatch, Reason),
-            gen_tcp:close(Sock)
+            gen_tcp:close(Sock),
+            receive after 30000 -> ok end,
+
+            %% ... y reinicio el servidor
+            spawn(?MODULE, start, [Port]),
+            ok;
+        stop_srvr ->  
+            exit(PidStat, ss),
+            exit(PidBalance, ss),
+            exit(PidDispatch, ss),
+            Sock ! "stop_server",
+            gen_tcp:close(Sock),
+            ok
     end,
 
-    receive after 30000 -> ok end,
-
-    %% ... y reinicio el servidor
-    spawn(?MODULE, start, [Port]),
     ok.
 
 %% Server/2: ejecuta un servidor uniendolo a otro ya existente
@@ -82,11 +92,14 @@ psocket_loop(Sock, PidBalance, UserName) ->
     receive
         %% Ante un request al pcommand lo pasamos al nodo con menos trabajo.
         {tcp, Sock, Data} ->
-            PidBalance ! {psocket, self()},
-            receive
-                {pbalance, Node} ->
-                    spawn(Node, ?MODULE, pcommand, [Data, UserName, self()]);
-                _                -> io:format("ERROR [psocket_loop] mistaken pbalance answer.~n")
+            case Data of
+                "stop_server" -> exit(kill);
+                    _ -> PidBalance ! {psocket, self()},
+                receive
+                    {pbalance, Node} ->
+                        spawn(Node, ?MODULE, pcommand, [Data, UserName, self()]);
+                    _                -> io:format("ERROR [psocket_loop] mistaken pbalance answer.~n")
+                end
             end;
         %% Ante una respuesta de un pcommand la reenviamos al cliente.
         {pcommand, Msg}    ->

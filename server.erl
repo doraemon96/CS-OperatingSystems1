@@ -11,8 +11,6 @@ start(Port) ->
     mnesia:create_table(user, [{attributes, record_info(fields, user)}, {disc_copies, [node()]}]),
     mnesia:create_table(game, [{attributes, record_info(fields, game)}, {disc_copies, [node()]}]),
     Pid = spawn(?MODULE, server, [Port]),
-    receive after 10000 -> ok end,
-    Pid ! stop_server,
     ok. 
 
 start(Node,Port) ->

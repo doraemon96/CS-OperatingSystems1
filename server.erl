@@ -59,7 +59,6 @@ server(Port) ->
             gen_tcp:close(Sock),
             ok
     end,
-
     ok.
 
 %% Server/2: ejecuta un servidor uniendolo a otro ya existente

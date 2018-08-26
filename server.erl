@@ -35,10 +35,14 @@ server(Port) ->
     PidStat     = spawn_link(?MODULE, pstat, []),
     PidBalance  = spawn_link(?MODULE, pbalance, [statistics(run_queue), element(2, statistics(reductions)), node()]),
     global:register_name("balance" ++ atom_to_list(node()), PidBalance),
-    PidDispatch = spawn_link(?MODULE, dispatcher, [Sock, PidBalance]),
+    PidDispatch = spawn_link(?MODULE, dispatcher, [Sock, PidBalance, 0]),
 
     process_flag(trap_exit, true),
     
+    %% Registro globalmente el nombre del server para poder enviarle
+    %% el mensajito de stop_srvr
+    global:register_name("server" ++ atom_to_list(node()), self()),
+
     %% Ante la caida de algun proceso cierro todos los otros
     receive
         {'EXIT',_,Reason} -> 
@@ -67,43 +71,54 @@ server(Port,Server) ->
     receive after 1000 -> ok end,           %%TODO: esto para que era?
     server(Port).
 
+stop_server() ->
+    Server = lists:filter(fun(X) -> lists:prefix("server" ++ atom_to_list(node()), X) end, global:registered_names()),
+    case Server of
+        [H] -> global:send(H, stop_srvr);
+        _   -> io:format("ERROR: server not found ~n")
+    end,
+    Loops     = lists:filter(fun(X) -> lists:prefix("loop", X) end, global:registered_names()),
+    NodeLoops = lists:filter(fun(X) -> lists:suffix(atom_to_list(node()), X) end, Loops),
+    lists:foreach(fun(X) -> global:send(X, stop_srvr) end, NodeLoops),
+    ok. 
+
 %% Dispatcher:
-dispatcher(Sock, PidBalance) ->
+dispatcher(Sock, PidBalance, Count) ->
     {ok, NewSock} = gen_tcp:accept(Sock),
     io:format(">> NEW_CON: ~p~n", [NewSock]),
-    Pid = spawn(?MODULE, psocket, [NewSock, PidBalance]),
+    Pid = spawn(?MODULE, psocket, [NewSock, PidBalance, Count]),
     ok = gen_tcp:controlling_process(NewSock, Pid),
     Pid ! ok,
-    dispatcher(Sock, PidBalance).
+    dispatcher(Sock, PidBalance, Count + 1).
 
 %% PSocket: Actua como intermediario entre el cliente y el servidor
 %%  crea un "socket virtual" por cada cliente en el servidor
-psocket(Sock, PidBalance) -> 
+psocket(Sock, PidBalance, Count) -> 
     receive ok -> ok end,
     ok = inet:setopts(Sock, [{active,true}]),
-    psocket_loop(Sock, PidBalance, nil).
+    psocket_loop(Sock, PidBalance, nil, Count).
 
 %% PSocket_loop: es el "socket virtual" de cada cliente
 %TODO: UserName tiene que ocurrir luego de un CON, es mas, todo tiene que ser error hasta un CON
-psocket_loop(Sock, PidBalance, UserName) ->
+psocket_loop(Sock, PidBalance, UserName, Count) ->
+    %% Tenemos que registar el psocket
+    %% para poder mandarle el mensaje de kill
+    %% cuando usamos stop_server
+    global:register_name("loop" ++ integer_to_list(Count) ++ atom_to_list(node()), self()),
     receive
         %% Ante un request al pcommand lo pasamos al nodo con menos trabajo.
         {tcp, Sock, Data} ->
-            case Data of
-                "stop_server" -> exit(kill);
-                    _ -> PidBalance ! {psocket, self()},
+            PidBalance ! {psocket, self()},
                 receive
-                    {pbalance, Node} ->
-                        spawn(Node, ?MODULE, pcommand, [Data, UserName, self()]);
+                    {pbalance, Node} -> spawn(Node, ?MODULE, pcommand, [Data, UserName, self()]);
                     _                -> io:format("ERROR [psocket_loop] mistaken pbalance answer.~n")
-                end
-            end;
+                end;
         %% Ante una respuesta de un pcommand la reenviamos al cliente.
         {pcommand, Msg}    ->
             case Msg of
                 "CON valid " ++ NewUserName -> 
                     gen_tcp:send(Sock, Msg),
-                    psocket_loop(Sock, PidBalance, NewUserName);
+                    psocket_loop(Sock, PidBalance, NewUserName, Count);
                 "PLA success " ++ Tail      -> 
                     gen_tcp:send(Sock, Msg),
                     [GameID|Status] = string:tokens(Tail, " "),
@@ -132,11 +147,12 @@ psocket_loop(Sock, PidBalance, UserName) ->
             lists:foreach(fun(X) -> X ! {pcommand, "UPD disconnect " ++ UserName} end, cmd_bye(UserName)),
             io:format(">> USER_DC: ~p.~n", [UserName]),
             exit(disconnect);
+        stop_srvr -> exit(kill);
         Default ->
             io:format("ERROR [psocket_loop] mensaje desconocido ~p.~n", [Default]),
             ok
     end,
-    psocket_loop(Sock, PidBalance, UserName).
+    psocket_loop(Sock, PidBalance, UserName, Count).
 
 %% PCommand: procesa los comandos enviados por el cliente
 pcommand(Command, UserName, PidSocket) ->

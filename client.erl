@@ -26,6 +26,7 @@ updater(Sock, CliLoopPid) ->
                     case Msg of
                         ["noexist", Cmd] -> io:format("El comando ~p no existe.~n",[Cmd]);
                         ["wformat", Cmd] -> io:format("Parametros incorrectos en ~p.~n",[Cmd]);
+                        ["noreg", Cmd]   -> io:format("Necesita realizar \"CON <usuario>\" para utilizar ~p.~n",[Cmd]);
                         _                -> io:format("ERROR [updater] al procesar CMDE~n", [])
                     end;
                 ["CON" | T] ->

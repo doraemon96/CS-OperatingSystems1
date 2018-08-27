@@ -71,22 +71,24 @@ server(Port,Server) ->
 dispatcher(Sock, PidBalance) ->
     {ok, NewSock} = gen_tcp:accept(Sock),
     io:format(">> NEW_CON: ~p~n", [NewSock]),
-    Pid = spawn_link(?MODULE, psocket, [NewSock, PidBalance]),
+    Pid = spawn(?MODULE, psocket, [NewSock, PidBalance, self()]),
     ok = gen_tcp:controlling_process(NewSock, Pid),
     Pid ! ok,
     dispatcher(Sock, PidBalance).
 
 %% PSocket: Actua como intermediario entre el cliente y el servidor
 %%  crea un "socket virtual" por cada cliente en el servidor
-psocket(Sock, PidBalance) -> 
+psocket(Sock, PidBalance, PidDispatcher) -> 
     receive ok -> ok end,
     ok = inet:setopts(Sock, [{active,true}]),
+    erlang:monitor(process, PidDispatcher),
     psocket_loop(Sock, PidBalance, nil).
 
 %% PSocket_loop: es el "socket virtual" de cada cliente
-%TODO: UserName tiene que ocurrir luego de un CON, es mas, todo tiene que ser error hasta un CON
 psocket_loop(Sock, PidBalance, UserName) ->
     receive
+        %% Ante una caida del dispatcher cerramos el psocket_loop
+        {'DOWN',_,process,_,Reason} -> exit(Reason);
         %% Ante un request al pcommand lo pasamos al nodo con menos trabajo.
         {tcp, Sock, Data} ->
             PidBalance ! {psocket, self()},
@@ -116,7 +118,7 @@ psocket_loop(Sock, PidBalance, UserName) ->
                         ["continue"] -> ok;
                         _            -> game_delete(GID)
                     end;
-                "ACC succes "++GameID     ->  
+                "ACC success "++GameID     ->  
                     GID = element(1, string:to_integer(GameID)),
                     OSock = user_get_psock(element(1, game_get_players(GID))),
                     OSock ! {pcommand, "UPD acc " ++ GameID}, 

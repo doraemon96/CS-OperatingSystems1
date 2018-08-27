@@ -26,6 +26,10 @@ start(Node,Port) ->
     spawn(?MODULE, server, [Port, Node]),
     ok. 
 
+%% Stop: termina la ejecucion del servidor
+%%  enviando un exit al pid de dispatcher
+stop() -> exit(whereis(stoppid), server_stop).
+
 %% Server/1: comienza la ejecucion de un servidor
 %%  escucha en el puerto indicado, spawnea un balanceador de carga unico y propio,
 %%  un dispatcher de mensajes, y da comienzo a la escucha de mensajes.
@@ -36,6 +40,7 @@ server(Port) ->
     PidBalance  = spawn_link(?MODULE, pbalance, [statistics(run_queue), element(2, statistics(reductions)), node()]),
     global:register_name("balance" ++ atom_to_list(node()), PidBalance),
     PidDispatch = spawn_link(?MODULE, dispatcher, [Sock, PidBalance]),
+    true = register(stoppid, PidDispatch),
 
     process_flag(trap_exit, true),
     
@@ -45,14 +50,16 @@ server(Port) ->
             exit(PidStat, Reason),
             exit(PidBalance, Reason),
             exit(PidDispatch, Reason),
-            gen_tcp:close(Sock)
-    end,
-
-    receive after 30000 -> ok end,
-
-    %% ... y reinicio el servidor
-    spawn(?MODULE, start, [Port]),
-    ok.
+            gen_tcp:close(Sock),
+            case Reason of
+                server_stop ->
+                    io:format("** SERVER SHUTDOWN **"),
+                    ok;
+                _           ->
+                    receive after 10000 -> ok end,
+                    spawn(?MODULE,start,[Port])
+            end
+    end.
 
 %% Server/2: ejecuta un servidor uniendolo a otro ya existente
 server(Port,Server) ->
@@ -64,7 +71,7 @@ server(Port,Server) ->
 dispatcher(Sock, PidBalance) ->
     {ok, NewSock} = gen_tcp:accept(Sock),
     io:format(">> NEW_CON: ~p~n", [NewSock]),
-    Pid = spawn(?MODULE, psocket, [NewSock, PidBalance]),
+    Pid = spawn_link(?MODULE, psocket, [NewSock, PidBalance]),
     ok = gen_tcp:controlling_process(NewSock, Pid),
     Pid ! ok,
     dispatcher(Sock, PidBalance).

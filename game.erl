@@ -141,7 +141,6 @@ user_get_observers_psock(UName) ->
             qlc:e(Handle)
          end,
     L2 = mnesia:activity(transaction, F2),
-    io:format("L1 ++ L2 : ~p ~n~n",[L1 ++ L2]),
     lists:map(fun(X) -> user_get_psock(X) end, list_flatten(L1 ++ L2)).
 
 %% gets a game's opponent

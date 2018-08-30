@@ -122,7 +122,8 @@ psocket_loop(Sock, PidBalance, UserName) ->
                     GID = element(1, string:to_integer(GameID)),
                     OSock = user_get_psock(element(1, game_get_players(GID))),
                     OSock ! {pcommand, "UPD acc " ++ GameID}, 
-                    OSock ! {pcommand, game_get_table(GID)};
+                    OSock ! {pcommand, game_get_table(GID)},
+                    gen_tcp:send(Sock,Msg);
                  _                        ->
                      gen_tcp:send(Sock, Msg)
             end;

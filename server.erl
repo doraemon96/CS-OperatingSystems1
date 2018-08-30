@@ -124,6 +124,8 @@ psocket_loop(Sock, PidBalance, UserName) ->
                     OSock ! {pcommand, "UPD acc " ++ GameID}, 
                     OSock ! {pcommand, game_get_table(GID)},
                     gen_tcp:send(Sock,Msg);
+                "BYE" ->
+                    io:format(">> USER_DC: ~p.~n", [UserName]);
                  _                        ->
                      gen_tcp:send(Sock, Msg)
             end;

@@ -299,7 +299,7 @@ game_add_observer(GameId, UName) ->
                     []  -> "error";
                     [G] -> Observers = [UName | erlang:element(6,G)],
                            mnesia:write(G#game{observers = Observers}),
-                           "success " ++ GameId
+                           "success " ++ integer_to_list(GameId)
                  end
         end,
     mnesia:activity(transaction, F).
@@ -320,7 +320,7 @@ game_delete_observer(GameID, UName) ->
             case mnesia:read({game, GameID}) of
                 [G] -> Observers = lists:delete(UName, element(6, G)),
                        mnesia:write(G#game{observers = Observers}),
-                       "success " ++ GameID;
+                       "success " ++ integer_to_list(GameID);
                 _   -> "error"
             end
         end,

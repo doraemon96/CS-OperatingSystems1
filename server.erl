@@ -30,7 +30,10 @@ start(Node,Port) ->
 
 %% Stop: termina la ejecucion del servidor
 %%  enviando un exit al pid de dispatcher
-stop() -> exit(whereis(stoppid), server_stop).
+stop() -> 
+    mnesia:clear_table(user),
+    mnesia:clear_table(game),
+    exit(whereis(stoppid), server_stop).
 
 %% Server/1: comienza la ejecucion de un servidor
 %%  escucha en el puerto indicado, spawnea un balanceador de carga unico y propio,

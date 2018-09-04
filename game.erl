@@ -49,6 +49,13 @@ user_get_psock(UName) ->
         end,
     mnesia:activity(transaction, F).
 
+psock_get_user(PSock) ->
+    F = fun() -> 
+          Handle = qlc:q([P#user.name || P <- mnesia:table(user), (P#user.psock == PSock)]),
+          qlc:e(Handle)
+        end,
+    mnesia:activity(transaction, F).
+
 
 %% ***************************************** %%
 %% ***** Funciones de logica del juego ***** %%

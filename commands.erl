@@ -8,8 +8,11 @@
 %% un usuario con su mismo nombre, en caso contrario lo registra.
 cmd_con(UName, PSocket) ->
     case user_exists(UName) of
-        false -> user_add(UName, PSocket),
-                 "valid " ++ UName;
+        false -> case psock_get_user(PSocket) of
+                    [] -> user_add(UName, PSocket),
+                          "valid " ++ UName;
+                    _  -> "error"
+                 end;
         _     -> "error"
     end.
 

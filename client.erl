@@ -34,7 +34,7 @@ updater(Sock, CliLoopPid) ->
                         ["error"] -> io:format("Usuario invalido. Intente de nuevo.~n");
                         ["valid", UserName] -> io:format("Bienvenido ~p.~n", [UserName]),
                                               CliLoopPid ! {username, UserName};
-                        _         -> io:format("ERROR [updater] al procesar CON~n", [])
+                        _         -> io:format("ERROR [updater] al procesar CON ~n", [])
                     end;
                 ["LSG" | T] -> 
                     case T of

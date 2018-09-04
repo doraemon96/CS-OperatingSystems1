@@ -6,12 +6,12 @@
 %% Start: inicia el esquema de la base de datos y las tablas a usar
 %%  luego llama a iniciar al servidor
 start(Port) ->  
-    mnesia:clear_table(user),
-    mnesia:clear_table(game),
     mnesia:create_schema([node()]),
     mnesia:start(),
     mnesia:create_table(user, [{attributes, record_info(fields, user)}, {disc_copies, [node()]}]),
     mnesia:create_table(game, [{attributes, record_info(fields, game)}, {disc_copies, [node()]}]),
+    mnesia:clear_table(user),
+    mnesia:clear_table(game),
     spawn(?MODULE, server, [Port]),
     ok. 
 
